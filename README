@@ -5,6 +5,11 @@ tosi provides an implementation of rfc1006, as defined at http://tools.ietf.org/
 The implementation puts ISO/IEC 8072/8073 transport class 0 on top of a TCP/IP connection (on port 102).
 ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262 and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264. 
 
+Documentation
+-------------
+
+The tosi API reference is available on GoDoc: http://godoc.org/github.com/danielePala/tosi.
+
 License
 -------
 
