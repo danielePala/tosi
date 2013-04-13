@@ -31,7 +31,7 @@ const (
 	rfc1006port = 102
 )
 
-// TosiConn is an implementation of the Conn interface 
+// TosiConn is an implementation of the net.Conn interface 
 // for Tosi network connections. 
 type TosiConn struct {
 	tcpConn net.TCPConn    // TCP connection
@@ -150,17 +150,17 @@ func tosiToTCPaddr(tosi TosiAddr) (tcp net.TCPAddr) {
 
 // Close closes the Tosi connection.
 // This is the 'implicit' variant defined in ISO 8073, i.e.
-// all it does is closing the underlying TCP connection 
+// all it does is closing the underlying TCP connection.
 func (c *TosiConn) Close() error {
 	return c.tcpConn.Close()
 }
 
-// LocalAddr returns the local network address
+// LocalAddr returns the local network address.
 func (c *TosiConn) LocalAddr() net.Addr {
 	return &c.laddr
 }
 
-// Read implements the Conn Read method.
+// Read implements the net.Conn Read method.
 // If b is not large enough for the TPDU data, it fills b and next Read
 // will read the rest of the TPDU data. 
 func (c *TosiConn) Read(b []byte) (n int, err error) {
@@ -237,27 +237,39 @@ func (c *TosiConn) Read(b []byte) (n int, err error) {
 	return 0, err 
 }
 
-// RemoteAddr returns the remote network address
+// RemoteAddr returns the remote network address.
 func (c *TosiConn) RemoteAddr() net.Addr {
 	return &c.raddr
 }
 
-// SetDeadline implements the Conn SetDeadline method. 
+// SetDeadline implements the net.Conn SetDeadline method.
+// NOTE: right now this method just wraps the underlying
+// TCP method. However, a tosi Read or Write call may
+// imply more than one TCP Read or Write, so that the
+// deadline may be surpassed.
 func (c *TosiConn) SetDeadline(t time.Time) error {
 	return c.tcpConn.SetDeadline(t)
 }
 
-// SetReadDeadline implements the Conn SetReadDeadline method.
+// SetReadDeadline implements the net.Conn SetReadDeadline method.
+// NOTE: right now this method just wraps the underlying
+// TCP method. However, a tosi Read or Write call may
+// imply more than one TCP Read or Write, so that the
+// deadline may be surpassed.
 func (c *TosiConn) SetReadDeadline(t time.Time) error {
 	return c.tcpConn.SetReadDeadline(t)
 }
 
-// SetWriteDeadline implements the Conn SetWriteDeadline method. 
+// SetWriteDeadline implements the Conn SetWriteDeadline method.
+// NOTE: right now this method just wraps the underlying
+// TCP method. However, a tosi Read or Write call may
+// imply more than one TCP Read or Write, so that the
+// deadline may be surpassed. 
 func (c *TosiConn) SetWriteDeadline(t time.Time) error {
 	return c.tcpConn.SetWriteDeadline(t)
 }
 
-// Write implements the Conn Write method. 
+// Write implements the net.Conn Write method.
 func (c *TosiConn) Write(b []byte) (n int, err error) {
 	if b == nil {
 		return 0, errors.New("invalid input")
@@ -291,18 +303,24 @@ type TosiAddr struct {
 	Tsel []byte
 }
 
+// Network returns the address's network name, "tosi".
 func (a *TosiAddr) Network() string {
 	return "tosi"
 }
 
 func (a *TosiAddr) String() string {
-	return a.IP.String() + ":" + string(a.Tsel)
+	if a.Tsel != nil {
+		return a.IP.String() + ":" + string(a.Tsel)
+	} 
+	return a.IP.String()
 }
  
 // ResolveTosiAddr parses addr as a Tosi address of the form host:tsel and 
 // resolves domain names to numeric addresses on the network net, 
 // which must be "tosi", "tosi4" or "tosi6". 
-// A literal IPv6 host address must be enclosed in square brackets, as in "[::]:80". 
+// A literal IPv6 host address must be enclosed in square brackets, as in "[::]:80".
+// tsel is the "trasport selector", which can be an arbitrary sequence
+// of bytes. Thus '10.20.30.40:hello' is a valid address.  
 func ResolveTosiAddr(tnet, addr string) (tosiAddr *TosiAddr, err error) {
 	host, tsel, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -330,14 +348,14 @@ func ResolveTosiAddr(tnet, addr string) (tosiAddr *TosiAddr, err error) {
 }
 
 // TosiListener is a Tosi network listener. Clients should typically use 
-// variables of type Listener instead of assuming Tosi. 
+// variables of type net.Listener instead of assuming Tosi. 
 type TosiListener struct {
 	addr *TosiAddr
 	tcpListener net.TCPListener
 }
 
-// Accept implements the Accept method in the Listener interface; 
-// it waits for the next call and returns a generic Conn. 
+// Accept implements the Accept method in the net.Listener interface; 
+// it waits for the next call and returns a generic net.Conn. 
 func (l *TosiListener) Accept() (c net.Conn, err error) {
 	// listen for TCP connections
 	tcp, err := l.tcpListener.AcceptTCP()
@@ -413,7 +431,7 @@ func (l *TosiListener) Close() error {
 	return l.tcpListener.Close()
 }
 
-// Addr returns the listener's network address
+// Addr returns the listener's network address.
 func (l *TosiListener) Addr() net.Addr {
 	return l.addr
 }
