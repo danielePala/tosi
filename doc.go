@@ -36,13 +36,13 @@ found here: http://golang.org/pkg/net/.
 
 The Dial function connects to a server: 
 
-conn, err := net.Dial("tosi", "192.168.1.1:100")
-if err != nil {
-        // handle error
-}
-fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
-status, err := bufio.NewReader(conn).ReadString('\n')
-// ...
+ conn, err := net.Dial("tosi", "192.168.1.1:100")
+ if err != nil {
+         // handle error
+ }
+ fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
+ status, err := bufio.NewReader(conn).ReadString('\n')
+ // ...
 
 A tosi address is composed by an IP address and an optional
 "trasport selector (TSEL)" which can be an arbitrary sequence
@@ -50,18 +50,18 @@ of bytes. Thus '10.20.30.40:hello' is a valid address.
 
 The Listen function creates servers:
 
-ln, err := net.Listen("tosi", ":8080")
-if err != nil {
-        // handle error
-}
-for {
-        conn, err := ln.Accept()
-        if err != nil {
-                // handle error
-                continue
-        }
-        go handleConnection(conn)
-}
+ ln, err := net.Listen("tosi", ":8080")
+ if err != nil {
+         // handle error
+ }
+ for {
+         conn, err := ln.Accept()
+         if err != nil {
+                 // handle error
+                 continue
+         }
+         go handleConnection(conn)
+ }
 
 */
 package tosi
