@@ -34,7 +34,7 @@ and Listener interfaces. Please refer to that package's documentation
 for general informations on their usage and philosophy, it can be
 found here: http://golang.org/pkg/net/.
 
-The Dial function connects to a server: 
+The DialTOSI function connects to a server: 
 
  conn, err := tosi.DialTOSI("tosi", "192.168.1.1:100")
  if err != nil {
