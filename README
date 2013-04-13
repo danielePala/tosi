@@ -3,8 +3,7 @@ tosi
 
 tosi provides an implementation of rfc1006, as defined at http://tools.ietf.org/html/rfc1006.
 The implementation puts ISO/IEC 8072/8073 transport class 0 on top of a TCP/IP connection (on port 102).
-ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
-and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264. 
+ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262 and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264. 
 
 License
 -------
@@ -19,6 +18,5 @@ Daniele Pala <pala.daniele@gmail.com>
 Known bugs and limitations
 -------
 
-Right now the SetDeadline, SetReadDeadline and SetWriteDeadline methods just wraps the underlying
-TCP methods. However, a tosi Read or Write call may imply more than one TCP Read or Write, so that the
-deadline may be surpassed.
+Right now the SetDeadline, SetReadDeadline and SetWriteDeadline methods just wraps the underlying TCP methods. 
+However, a tosi Read or Write call may imply more than one TCP Read or Write, so that the deadline may be surpassed.
