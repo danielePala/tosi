@@ -33,10 +33,10 @@ func TestConn(t *testing.T) {
 	go tosiServer(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkError(err, t)
 	// close connection
         err = conn.Close()
@@ -51,10 +51,10 @@ func TestConnNoTsel(t *testing.T) {
 	go tosiServerNoTsel(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1")
         checkError(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkError(err, t)
 	// close connection
         err = conn.Close()
@@ -69,10 +69,10 @@ func TestConnNoTselFail(t *testing.T) {
 	go tosiServerWrongAddr(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1")
         checkError(err, t)
 	// try to connect
-        _, err = tosi.DialTosi("tosi", nil, tosiAddr)
+        _, err = tosi.DialTOSI("tosi", nil, tosiAddr)
         checkWantedError(err, t)
 }
 
@@ -84,12 +84,12 @@ func TestConnLAddr(t *testing.T) {
 	go tosiServer(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
-	localTosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:999")
+	localTOSIAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:999")
         checkError(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", localTosiAddr, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", localTOSIAddr, tosiAddr)
         checkError(err, t)
 	// close connection
         err = conn.Close()
@@ -103,27 +103,27 @@ func TestWrongAddr(t *testing.T) {
 	go tosiServerWrongAddr(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:10")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:10")
         checkError(err, t)
 	// try to connect
-        _, err = tosi.DialTosi("tosi", nil, tosiAddr)
+        _, err = tosi.DialTOSI("tosi", nil, tosiAddr)
         checkWantedError(err, t)
 }
 
 // Test 6
 // test connection establishment with wrong net. It should fail.
 func TestWrongNet(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
 	// try to connect
-        _, err = tosi.DialTosi("tosiiii", nil, tosiAddr)
+        _, err = tosi.DialTOSI("tosiiii", nil, tosiAddr)
         checkWantedError(err, t)
 }
 
 // Test 7
 // try to resolve address with wrong net. It should fail.
 func TestWrongNet2(t *testing.T) {
-	_, err := tosi.ResolveTosiAddr("tosiiii", "127.0.0.1:100")
+	_, err := tosi.ResolveTOSIAddr("tosiiii", "127.0.0.1:100")
         checkWantedError(err, t)
 }
 
@@ -136,9 +136,9 @@ func TestServerWrongNet(t *testing.T) {
 
 // a tosi server. No fault is expected.
 func tosiServer(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkError(err, t)
 	// listen for connections
         conn, err := listener.Accept()
@@ -152,9 +152,9 @@ func tosiServer(t *testing.T) {
 
 // a tosi server with no tsel. No fault is expected.
 func tosiServerNoTsel(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1")
         checkError(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkError(err, t)
 	// listen for connections
         conn, err := listener.Accept()
@@ -168,9 +168,9 @@ func tosiServerNoTsel(t *testing.T) {
 
 // a tosi server. A wrong tsel (or no tsel) is expected.
 func tosiServerWrongAddr(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkError(err, t)
 	// listen for connections
         _, err = listener.Accept()
@@ -181,9 +181,9 @@ func tosiServerWrongAddr(t *testing.T) {
 
 // a tosi server with wrong net. It should fail.
 func tosiServerWrongNet(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkError(err, t)
-        _, err = tosi.ListenTosi("t", tosiAddr)
+        _, err = tosi.ListenTOSI("t", tosiAddr)
         checkWantedError(err, t)
 }
 

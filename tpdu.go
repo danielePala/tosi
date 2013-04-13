@@ -1,6 +1,6 @@
 /*
  Definition of the TPDUs used by ISO 8073 transport Class 0. 
- 
+
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -36,63 +36,63 @@ const (
 	minTpduSize = 128
 	// CR-related defs
 	crMinLen = 7
-	crId = 0xe0
+	crId     = 0xe0
 	// CC-related defs
 	ccMinLen = 7
-	ccId = 0xd0
+	ccId     = 0xd0
 	// CR and CC common defs
-	connMinLen = 7
-	tpduSizeID = 0xc0
-	locTselID = 0xc1
-	remTselID = 0xc2
-	prefTpduSizeID = 0xf0
-	tpduSizeLen = 0x01
+	connMinLen      = 7
+	tpduSizeID      = 0xc0
+	locTselID       = 0xc1
+	remTselID       = 0xc2
+	prefTpduSizeID  = 0xf0
+	tpduSizeLen     = 0x01
 	prefTpduSizeLen = 0x04
-	classOptIdx = 6
+	classOptIdx     = 6
 	// DR-related defs
-	drMinLen = 7
-	drId = 0x80
-	drUnspec = 0x00
-	drCong = 0x01
-	drSna = 0x02
-	drUnknown = 0x03
-	infoID = 0xe0
+	drMinLen    = 7
+	drId        = 0x80
+	drUnspec    = 0x00
+	drCong      = 0x01
+	drSna       = 0x02
+	drUnknown   = 0x03
+	infoID      = 0xe0
 	drReasonIdx = 6
-	drInfoIdx = 9
+	drInfoIdx   = 9
 	// ER-related defs
-	erMinLen = 5
-	erId = 0x70
-	invalidID = 0xc1
-	erUnspec = 0x00
+	erMinLen    = 5
+	erId        = 0x70
+	invalidID   = 0xc1
+	erUnspec    = 0x00
 	erParamCode = 0x01
-	erTpdu = 0x02
-	erParamVal = 0x03
-	erCauseIdx = 4
-	erInvIdx = 7
+	erTpdu      = 0x02
+	erParamVal  = 0x03
+	erCauseIdx  = 4
+	erInvIdx    = 7
 	// DT-related defs 
 	dtMinLen = 3
-	dtId = 0xf0
-	eotIdx = 2
+	dtId     = 0xf0
+	eotIdx   = 2
 )
 
 // variables associated with a connection
 type connVars struct {
-	locTsel, remTsel []byte 
-	tpduSize byte 
-	prefTpduSize []byte
-	srcRef, dstRef [2]byte
-} 
+	locTsel, remTsel []byte
+	tpduSize         byte
+	prefTpduSize     []byte
+	srcRef, dstRef   [2]byte
+}
 
 /* CR - Connection Request */
 // the variable part of the CR TPDU can contain the Transport-Selectors, 
 // maximum TPDU size, and preferred maximum TPDU size.
 func cr(cv connVars) (tpdu []byte) {
-	DST_REF := cv.dstRef[:] // must always be zero
-	SRC_REF := cv.srcRef[:] // should identify the transport connection
-        CLASS_OPTION := []byte{0x00}  // class 0
+	DST_REF := cv.dstRef[:]      // must always be zero
+	SRC_REF := cv.srcRef[:]      // should identify the transport connection
+	CLASS_OPTION := []byte{0x00} // class 0
 	// construct the fixed part of CR
 	fixed := append([]byte{crId}, DST_REF...)
-        fixed = append(fixed, SRC_REF...)
+	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, CLASS_OPTION...)
 	// construct the variable part of CR       
 	variable := setVarPart(cv)
@@ -100,7 +100,7 @@ func cr(cv connVars) (tpdu []byte) {
 	tpdu = append(fixed, variable...)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
-	return 
+	return
 }
 
 // determine if a packet is a CR, and read its Length Indicator
@@ -119,17 +119,17 @@ func isCR(incoming []byte) (found bool, tlen uint8) {
 // the variable part of the CC TPDU can contain the Transport-Selectors, 
 // maximum TPDU size, and preferred maximum TPDU size.
 func cc(cv connVars) (tpdu []byte) {
-	DST_REF := cv.dstRef[:] 
-	SRC_REF := cv.srcRef[:] 
-        CLASS_OPTION := []byte{0x00}
+	DST_REF := cv.dstRef[:]
+	SRC_REF := cv.srcRef[:]
+	CLASS_OPTION := []byte{0x00}
 	fixed := append([]byte{ccId}, DST_REF...)
-        fixed = append(fixed, SRC_REF...)
-        fixed = append(fixed, CLASS_OPTION...)
-        variable := setVarPart(cv)
+	fixed = append(fixed, SRC_REF...)
+	fixed = append(fixed, CLASS_OPTION...)
+	variable := setVarPart(cv)
 	tpdu = append(fixed, variable...)
-        pLen := byte(len(tpdu))
-        tpdu = append([]byte{pLen}, tpdu...)
-        return
+	pLen := byte(len(tpdu))
+	tpdu = append([]byte{pLen}, tpdu...)
+	return
 }
 
 // determine if a packet is a CC, and read its Length Indicator
@@ -182,10 +182,10 @@ func getConnVars(incoming []byte) (cv connVars) {
 	copy(cv.srcRef[:], incoming[4:6])
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
-		cv.locTsel = nil 
-		cv.remTsel = nil 
-		cv.tpduSize = 0 
-		cv.prefTpduSize = nil 
+		cv.locTsel = nil
+		cv.remTsel = nil
+		cv.tpduSize = 0
+		cv.prefTpduSize = nil
 		return
 	}
 	// discard the fixed part
@@ -211,7 +211,7 @@ func getConnVars(incoming []byte) (cv connVars) {
 				binary.Read(buf, binary.BigEndian, &cv.tpduSize)
 			}
 		case prefTpduSizeID:
-			if pLen <= prefTpduSizeLen { 
+			if pLen <= prefTpduSizeLen {
 				cv.prefTpduSize = make([]byte, pLen)
 				binary.Read(buf, binary.BigEndian, &cv.prefTpduSize)
 			}
@@ -271,8 +271,8 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 				// invalid parameter length
 				return false, erBuf[:index]
 			}
-			tpduSize := int8(incoming[0]) 
-			if ((tpduSize < 7) || (tpduSize > 11)) {
+			tpduSize := int8(incoming[0])
+			if (tpduSize < 7) || (tpduSize > 11) {
 				// invalid size
 				return false, erBuf[:index]
 			}
@@ -301,9 +301,9 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 // up to and including the octet which caused the rejection.
 func validateCc(incoming []byte, crCv, ccCv connVars) (valid bool, erBuf []byte) {
 	// dstref must be equal to the srcref of the CR tpdu
-        if !bytes.Equal(incoming[2:4], crCv.srcRef[:]) {
-                return false, incoming[:4]
-        }
+	if !bytes.Equal(incoming[2:4], crCv.srcRef[:]) {
+		return false, incoming[:4]
+	}
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
 		// all ok
@@ -342,8 +342,8 @@ func validateCc(incoming []byte, crCv, ccCv connVars) (valid bool, erBuf []byte)
 				// invalid parameter length
 				return false, erBuf[:index]
 			}
-			tpduSize := int8(incoming[0]) 
-			if ((tpduSize < 7) || (tpduSize > 11)) {
+			tpduSize := int8(incoming[0])
+			if (tpduSize < 7) || (tpduSize > 11) {
 				// invalid size
 				return false, erBuf[:index]
 			}
@@ -382,11 +382,11 @@ func validateDt(incoming []byte) (valid bool, erBuf []byte) {
 /* DR - Disconnect Request */
 // the variable part of the DR TPDU can contain a parameter allowing 
 // additional information related to the clearing of the connection
-func dr(conn TosiConn, reason byte, info []byte) (tpdu []byte) {
-	DST_REF := conn.dstRef[:] 
-	SRC_REF := conn.srcRef[:] 
+func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
+	DST_REF := conn.dstRef[:]
+	SRC_REF := conn.srcRef[:]
 	fixed := append([]byte{drId}, DST_REF...)
-        fixed = append(fixed, SRC_REF...)
+	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, reason)
 	var variable []byte
 	// construct the info option
@@ -400,9 +400,9 @@ func dr(conn TosiConn, reason byte, info []byte) (tpdu []byte) {
 	}
 	// assemble the whole tpdu
 	tpdu = append(fixed, variable...)
-        pLen := byte(len(tpdu))
-        tpdu = append([]byte{pLen}, tpdu...)
-        return
+	pLen := byte(len(tpdu))
+	tpdu = append([]byte{pLen}, tpdu...)
+	return
 }
 
 // determine if a packet is a DR, and read its Length Indicator
@@ -412,14 +412,14 @@ func isDR(incoming []byte) (found bool, tlen uint8) {
 
 // return info about the disconnection request
 func getDRerror(tpdu []byte) (e error) {
-	drReason := map[byte]string {
+	drReason := map[byte]string{
 		0x00: "Reason not specified",
 		0x01: "Congestion at TSAP",
 		0x02: "Session entity not attached to TSAP",
-		0x03: "Address unknown", 
+		0x03: "Address unknown",
 	}
 	if len(tpdu) > drInfoIdx {
-		return fmt.Errorf("DR - reason: %v, info: %v", 
+		return fmt.Errorf("DR - reason: %v, info: %v",
 			drReason[tpdu[drReasonIdx]], tpdu[drInfoIdx:])
 	}
 	return fmt.Errorf("DR - reason: %v", drReason[tpdu[drReasonIdx]])
@@ -453,7 +453,7 @@ func getMaxTpduSize(cv connVars) (size uint64, noPref bool) {
 // header up to and including the octet which caused the rejection. 
 // This parameter is mandatory in class 0.
 func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
-	DST_REF := dstRef 
+	DST_REF := dstRef
 	fixed := append([]byte{erId}, DST_REF...)
 	fixed = append(fixed, cause)
 	var variable []byte
@@ -462,9 +462,9 @@ func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 	variable = append(variable, invalidTpdu...)
 	// assemble the whole tpdu
 	tpdu = append(fixed, variable...)
-        pLen := byte(len(tpdu))
-        tpdu = append([]byte{pLen}, tpdu...)
-        return
+	pLen := byte(len(tpdu))
+	tpdu = append([]byte{pLen}, tpdu...)
+	return
 }
 
 // determine if a packet is an ER, and read its Length Indicator
@@ -474,14 +474,14 @@ func isER(incoming []byte) (found bool, tlen uint8) {
 
 // return info about the error occurred
 func getERerror(tpdu []byte) (e error) {
-	erCause := map[byte]string {
+	erCause := map[byte]string{
 		0x00: "Reason not specified",
 		0x01: "Invalid parameter code",
 		0x02: "Invalid TPDU type",
-		0x03: "Invalid parameter value", 
+		0x03: "Invalid parameter value",
 	}
 	if len(tpdu) > erInvIdx {
-		return fmt.Errorf("ER - cause: %v, invalid TPDU: %v", 
+		return fmt.Errorf("ER - cause: %v, invalid TPDU: %v",
 			erCause[tpdu[erCauseIdx]], tpdu[erInvIdx:])
 	}
 	return fmt.Errorf("ER - cause: %v", erCause[tpdu[erCauseIdx]])
@@ -491,10 +491,10 @@ func getERerror(tpdu []byte) (e error) {
 func dt(userData []byte) (tpdu []byte) {
 	var NR_EOT byte = 0x80
 	tpdu = append([]byte{dtId}, NR_EOT)
-        pLen := byte(len(tpdu))
-        tpdu = append([]byte{pLen}, tpdu...)
+	pLen := byte(len(tpdu))
+	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
-        return
+	return
 }
 
 // determine if a packet is a DT, and read its Length Indicator
@@ -506,22 +506,22 @@ func isDT(incoming []byte) (found bool, tlen uint8) {
 // in case of error returns the index of the faulty byte in the input slice
 func isType(incoming []byte, id byte, minLen int) (found bool, tlen uint8) {
 	if len(incoming) < minLen {
-                return false, uint8(len(incoming))
-        }
+		return false, uint8(len(incoming))
+	}
 	if incoming[1] == id {
 		found = true
 		buf := bytes.NewBuffer(incoming[0:1])
 		binary.Read(buf, binary.BigEndian, &tlen)
-                return
-        }
-        return false, 2
+		return
+	}
+	return false, 2
 }
 
 /* create a TPKT from a TPDU */
 func tpkt(tpdu []byte) (tpkt []byte) {
 	header := []byte{0x03, 0x00}
 	// length includes this header too
-        pLen := uint16(len(tpdu) + 4)
+	pLen := uint16(len(tpdu) + 4)
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, pLen)
 	header = append(header, buf.Bytes()...)
@@ -539,7 +539,7 @@ func isTPKT(incoming []byte) (found bool, tlen uint16) {
 		buf := bytes.NewBuffer(incoming[2:4])
 		err := binary.Read(buf, binary.BigEndian, &tlen)
 		if err == nil {
-			return 
+			return
 		}
 	}
 	return false, 0

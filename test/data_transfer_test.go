@@ -35,10 +35,10 @@ func TestWrite2bytes(t *testing.T) {
 	go tosiServerRead2bytes(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkErrorDT(err, t)
 	_, err = conn.Write([]byte{0x01, 0x02})
         checkErrorDT(err, t)
@@ -56,10 +56,10 @@ func TestWriteMax(t *testing.T) {
 	go tosiServerReadMax(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkErrorDT(err, t)
 	var buf [65528]byte
 	_, err = conn.Write(buf[:])
@@ -78,10 +78,10 @@ func TestWrite2bytes2(t *testing.T) {
 	go tosiServerRead1byte(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkErrorDT(err, t)
 	_, err = conn.Write([]byte{0x01, 0x02})
         checkErrorDT(err, t)
@@ -99,10 +99,10 @@ func TestWriteMax2(t *testing.T) {
 	go tosiServerReadMax2(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
 	// try to connect
-        conn, err := tosi.DialTosi("tosi", nil, tosiAddr)
+        conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
         checkErrorDT(err, t)
 	var buf [65529]byte
 	_, err = conn.Write(buf[:])
@@ -115,9 +115,9 @@ func TestWriteMax2(t *testing.T) {
 
 // a tosi server reading 2 bytes. No fault is expected.
 func tosiServerRead2bytes(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkErrorDT(err, t)
 	// listen for connections
         conn, err := listener.Accept()
@@ -142,9 +142,9 @@ func tosiServerRead2bytes(t *testing.T) {
 
 // a tosi server reading 65528 bytes. No fault is expected.
 func tosiServerReadMax(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkErrorDT(err, t)
 	// listen for connections
         conn, err := listener.Accept()
@@ -169,9 +169,9 @@ func tosiServerReadMax(t *testing.T) {
 
 // a tosi server reading 1 byte for two times. No fault is expected.
 func tosiServerRead1byte(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkErrorDT(err, t)
 	// listen for connections
         conn, err := listener.Accept()
@@ -206,9 +206,9 @@ func tosiServerRead1byte(t *testing.T) {
 
 // a tosi server reading 65529 bytes. No fault is expected.
 func tosiServerReadMax2(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTosiAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
         checkErrorDT(err, t)
-        listener, err := tosi.ListenTosi("tosi", tosiAddr)
+        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
         checkErrorDT(err, t)
 	// listen for connections
         conn, err := listener.Accept()

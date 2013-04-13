@@ -19,7 +19,7 @@
 */
 
 /*
-Package tosi provides an implementation of rfc1006.
+Package tosi provides an implementation of RFC 1006.
 
 The protocol is defined at http://tools.ietf.org/html/rfc1006.
 The implementation puts ISO/IEC 8072/8073 transport class 0
@@ -36,7 +36,7 @@ found here: http://golang.org/pkg/net/.
 
 The Dial function connects to a server: 
 
- conn, err := net.Dial("tosi", "192.168.1.1:100")
+ conn, err := tosi.DialTOSI("tosi", "192.168.1.1:100")
  if err != nil {
          // handle error
  }
