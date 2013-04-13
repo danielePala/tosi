@@ -45,12 +45,12 @@ The DialTOSI function connects to a server:
  // ...
 
 A tosi address is composed by an IP address and an optional
-"trasport selector (TSEL)" which can be an arbitrary sequence
+"transport selector (TSEL)" which can be an arbitrary sequence
 of bytes. Thus '10.20.30.40:hello' is a valid address.
 
-The Listen function creates servers:
+The ListenTOSI function creates servers:
 
- ln, err := net.Listen("tosi", ":8080")
+ ln, err := tosi.ListenTOSI("tosi", ":8080")
  if err != nil {
          // handle error
  }
