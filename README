@@ -19,9 +19,3 @@ Author
 -------
 
 Daniele Pala <pala.daniele@gmail.com>
-
-Known bugs and limitations
--------
-
-Right now the SetDeadline, SetReadDeadline and SetWriteDeadline methods just wraps the underlying TCP methods. 
-However, a tosi Read or Write call may imply more than one TCP Read or Write, so that the deadline may be surpassed.

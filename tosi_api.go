@@ -34,11 +34,12 @@ const (
 // TOSIConn is an implementation of the net.Conn interface 
 // for TOSI network connections. 
 type TOSIConn struct {
-	tcpConn        net.TCPConn // TCP connection
-	laddr, raddr   TOSIAddr    // local and remote address
-	maxTpduSize    uint64      // max TPDU size
-	srcRef, dstRef [2]byte     // connection identifiers
-	readBuf        []byte      // read buffer
+	tcpConn                     net.TCPConn // TCP connection
+	laddr, raddr                TOSIAddr    // local and remote address
+	maxTpduSize                 uint64      // max TPDU size
+	srcRef, dstRef              [2]byte     // connection identifiers
+	readBuf                     []byte      // read buffer
+	readDeadline, writeDeadline time.Time   // read and write deadlines
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must 
@@ -99,7 +100,8 @@ func DialTOSI(tnet string, laddr, raddr *TOSIAddr) (*TOSIConn, error) {
 			if !noPref {
 				maxTpduSize = ccSize
 			}
-			return &TOSIConn{tcpConn: *tcp,
+			return &TOSIConn{
+				tcpConn:     *tcp,
 				laddr:       *laddr,
 				raddr:       *raddr,
 				maxTpduSize: maxTpduSize,
@@ -188,53 +190,67 @@ func (c *TOSIConn) Read(b []byte) (n int, err error) {
 		// try to read a DT 
 		buf = make([]byte, tlen-tpktHlen)
 		_, err = c.tcpConn.Read(buf)
-		isDT, idx := isDT(buf)
-		if isDT && err == nil {
-			valid, erBuf := validateDt(buf)
-			if !valid {
-				// we got an invalid DT
-				// reply with an ER 
-				reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
-				c.tcpConn.Write(reply)
-				return 0, errors.New("received an invalid DT")
-			}
-			sduLen := len(buf) - dtMinLen
-			copy(b, buf[dtMinLen:])
-			if len(b) < sduLen {
-				// Cannot return the whole SDU, save to buffer
-				uncopiedLen := sduLen - len(b)
-				uncopiedIdx := dtMinLen + len(b)
-				c.readBuf = make([]byte, uncopiedLen)
-				copy(c.readBuf, buf[uncopiedIdx:])
-				n = len(b)
-			} else {
-				c.readBuf = nil
-				n = sduLen
-			}
-			return
-		} else {
-			if err != nil {
-				return 0, err
-			}
-			// no DT received, maybe it's an ER or DR
-			isER, _ := isER(buf)
-			if isER {
-				err = getERerror(buf)
-			}
-			isDR, _ := isDR(buf)
-			if isDR {
-				err = getDRerror(buf)
-			}
-			if (isDR) || (isER) {
-				c.Close()
-			} else {
-				reply := tpkt(er(c.dstRef[:], erParamVal, buf[:idx]))
-				c.tcpConn.Write(reply)
-				err = errors.New("received an invalid TPDU")
-			}
+		if err != nil {
+			return 0, err
 		}
+		isDT, idx := isDT(buf)
+		if isDT {
+			return handleDT(c, b, buf)
+		}
+		err = handleDTError(c, buf, idx)
 	}
 	return 0, err
+}
+
+// parse a DT, handling errors and buffering issues 
+func handleDT(c *TOSIConn, b, tpdu []byte) (n int, err error) {
+	valid, erBuf := validateDt(tpdu)
+	if !valid {
+		// we got an invalid DT
+		// reply with an ER 
+		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
+		c.tcpConn.SetWriteDeadline(c.readDeadline)
+		c.tcpConn.Write(reply)
+		c.tcpConn.SetWriteDeadline(c.writeDeadline)
+		return 0, errors.New("received an invalid DT")
+	}
+	sduLen := len(tpdu) - dtMinLen
+	copy(b, tpdu[dtMinLen:])
+	if len(b) < sduLen {
+		// Cannot return the whole SDU, save to buffer
+		uncopiedLen := sduLen - len(b)
+		uncopiedIdx := dtMinLen + len(b)
+		c.readBuf = make([]byte, uncopiedLen)
+		copy(c.readBuf, tpdu[uncopiedIdx:])
+		n = len(b)
+	} else {
+		c.readBuf = nil
+		n = sduLen
+	}
+	return
+}
+
+// handle a tpdu which was expected to be a DT, but it's not 
+func handleDTError(c *TOSIConn, tpdu []byte, errIdx uint8) (err error) {
+	// no DT received, maybe it's an ER or DR
+	isER, _ := isER(tpdu)
+	if isER {
+		err = getERerror(tpdu)
+	}
+	isDR, _ := isDR(tpdu)
+	if isDR {
+		err = getDRerror(tpdu)
+	}
+	if (isDR) || (isER) {
+		c.Close()
+	} else {
+		reply := tpkt(er(c.dstRef[:], erParamVal, tpdu[:errIdx]))
+		c.tcpConn.SetWriteDeadline(c.readDeadline)
+		c.tcpConn.Write(reply)
+		c.tcpConn.SetWriteDeadline(c.writeDeadline)
+		err = errors.New("received an invalid TPDU")
+	}
+	return
 }
 
 // RemoteAddr returns the remote network address.
@@ -243,29 +259,21 @@ func (c *TOSIConn) RemoteAddr() net.Addr {
 }
 
 // SetDeadline implements the net.Conn SetDeadline method.
-// NOTE: right now this method just wraps the underlying
-// TCP method. However, a tosi Read or Write call may
-// imply more than one TCP Read or Write, so that the
-// deadline may be surpassed.
 func (c *TOSIConn) SetDeadline(t time.Time) error {
+	c.readDeadline = t
+	c.writeDeadline = t
 	return c.tcpConn.SetDeadline(t)
 }
 
 // SetReadDeadline implements the net.Conn SetReadDeadline method.
-// NOTE: right now this method just wraps the underlying
-// TCP method. However, a tosi Read or Write call may
-// imply more than one TCP Read or Write, so that the
-// deadline may be surpassed.
 func (c *TOSIConn) SetReadDeadline(t time.Time) error {
+	c.readDeadline = t
 	return c.tcpConn.SetReadDeadline(t)
 }
 
 // SetWriteDeadline implements the Conn SetWriteDeadline method.
-// NOTE: right now this method just wraps the underlying
-// TCP method. However, a tosi Read or Write call may
-// imply more than one TCP Read or Write, so that the
-// deadline may be surpassed. 
 func (c *TOSIConn) SetWriteDeadline(t time.Time) error {
+	c.writeDeadline = t
 	return c.tcpConn.SetWriteDeadline(t)
 }
 
@@ -400,7 +408,8 @@ func (l *TOSIListener) Accept() (c net.Conn, err error) {
 				raddr := TOSIAddr{tcpAddr.IP, cv.locTsel}
 				// determine the max TPDU size
 				maxTpduSize, _ := getMaxTpduSize(cv)
-				return &TOSIConn{tcpConn: *tcp,
+				return &TOSIConn{
+					tcpConn:     *tcp,
 					laddr:       *l.addr,
 					raddr:       raddr,
 					maxTpduSize: maxTpduSize,
