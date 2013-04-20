@@ -34,6 +34,7 @@ const (
 	// default and min TPDU size
 	defTpduSize = 65531
 	minTpduSize = 128
+	maxPrefTpduSize = 511
 	// CR-related defs
 	crMinLen = 7
 	crId     = 0xe0
@@ -73,6 +74,10 @@ const (
 	dtMinLen = 3
 	dtId     = 0xf0
 	eotIdx   = 2
+	NR_EOT = 0x80
+	// ED-related defs
+	edMinLen = 3
+	edId     = 0x10
 )
 
 // variables associated with a connection
@@ -245,6 +250,7 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 	index := connMinLen
 	// discard the fixed part
 	incoming = incoming[connMinLen:]
+	remTselFound := false
 	// decode the variable part
 	for len(incoming) > 2 {
 		id := incoming[0]
@@ -260,6 +266,7 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 			// always ok
 			index = index + pLen
 		case remTselID:
+			remTselFound = true
 			index = index + pLen
 			if !bytes.Equal(incoming[:pLen], remTsel) {
 				// wrong remTsel
@@ -290,6 +297,10 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 		if len(incoming) > pLen {
 			incoming = incoming[pLen:]
 		} else {
+			// remTsel required?	
+			if (remTsel != nil) && (remTselFound == false) {
+				return false, erBuf[:]
+			}
 			// all ok
 			return true, nil
 		}
@@ -439,7 +450,7 @@ func getMaxTpduSize(cv connVars) (size uint64, noPref bool) {
 	}
 	if cv.prefTpduSize != nil {
 		padding := make([]byte, 8-len(cv.prefTpduSize))
-		paddedSize := append(cv.prefTpduSize, padding...)
+		paddedSize := append(padding, cv.prefTpduSize...)
 		buf := bytes.NewBuffer(paddedSize)
 		binary.Read(buf, binary.BigEndian, &size)
 		size = size * minTpduSize
@@ -489,7 +500,6 @@ func getERerror(tpdu []byte) (e error) {
 
 /* DT - Data Transfer */
 func dt(userData []byte) (tpdu []byte) {
-	var NR_EOT byte = 0x80
 	tpdu = append([]byte{dtId}, NR_EOT)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
@@ -500,6 +510,20 @@ func dt(userData []byte) (tpdu []byte) {
 // determine if a packet is a DT, and read its Length Indicator
 func isDT(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, dtId, dtMinLen)
+}
+
+/* ED - Expedited Data. This is a non-standard TPDU defined in RFC 1006 */
+func ed(userData []byte) (tpdu []byte) {
+	tpdu = append([]byte{edId}, NR_EOT)
+	pLen := byte(len(tpdu))
+	tpdu = append([]byte{pLen}, tpdu...)
+	tpdu = append(tpdu, userData...)
+	return
+}
+
+// determine if a packet is an ED, and read its Length Indicator
+func isED(incoming []byte) (found bool, tlen uint8) {
+	return isType(incoming, edId, edMinLen)
 }
 
 // determine if a packet is of a certain type, and read its Length Indicator
