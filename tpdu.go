@@ -74,7 +74,7 @@ const (
 	dtMinLen = 3
 	dtId     = 0xf0
 	eotIdx   = 2
-	NR_EOT = 0x80
+	nrEot = 0x80
 	// ED-related defs
 	edMinLen = 3
 	edId     = 0x10
@@ -109,6 +109,7 @@ func cr(cv connVars) (tpdu []byte) {
 }
 
 // determine if a packet is a CR, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte  
 func isCR(incoming []byte) (found bool, tlen uint8) {
 	found, tlen = isType(incoming, crId, crMinLen)
 	if found {
@@ -116,8 +117,9 @@ func isCR(incoming []byte) (found bool, tlen uint8) {
 		if incoming[classOptIdx] == 0x00 {
 			return found, tlen
 		}
+		return false, classOptIdx + 1
 	}
-	return false, 0
+	return false, tlen
 }
 
 /* CC - Connection Confirm */
@@ -138,6 +140,7 @@ func cc(cv connVars) (tpdu []byte) {
 }
 
 // determine if a packet is a CC, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isCC(incoming []byte) (found bool, tlen uint8) {
 	found, tlen = isType(incoming, ccId, ccMinLen)
 	if found {
@@ -145,8 +148,9 @@ func isCC(incoming []byte) (found bool, tlen uint8) {
 		if incoming[classOptIdx] == 0x00 {
 			return found, tlen
 		}
+		return false, classOptIdx + 1
 	}
-	return false, 0
+	return false, tlen
 }
 
 // construct the variable part of a CR or CC packet
@@ -417,6 +421,7 @@ func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 }
 
 // determine if a packet is a DR, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isDR(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, drId, drMinLen)
 }
@@ -479,6 +484,7 @@ func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 }
 
 // determine if a packet is an ER, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isER(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, erId, erMinLen)
 }
@@ -500,7 +506,7 @@ func getERerror(tpdu []byte) (e error) {
 
 /* DT - Data Transfer */
 func dt(userData []byte) (tpdu []byte) {
-	tpdu = append([]byte{dtId}, NR_EOT)
+	tpdu = append([]byte{dtId}, nrEot)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
@@ -508,13 +514,15 @@ func dt(userData []byte) (tpdu []byte) {
 }
 
 // determine if a packet is a DT, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isDT(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, dtId, dtMinLen)
 }
 
 /* ED - Expedited Data. This is a non-standard TPDU defined in RFC 1006 */
+/* It is equal to DT, just with a different ID */
 func ed(userData []byte) (tpdu []byte) {
-	tpdu = append([]byte{edId}, NR_EOT)
+	tpdu = append([]byte{edId}, nrEot)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
@@ -522,12 +530,13 @@ func ed(userData []byte) (tpdu []byte) {
 }
 
 // determine if a packet is an ED, and read its Length Indicator
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isED(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, edId, edMinLen)
 }
 
 // determine if a packet is of a certain type, and read its Length Indicator
-// in case of error returns the index of the faulty byte in the input slice
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isType(incoming []byte, id byte, minLen int) (found bool, tlen uint8) {
 	if len(incoming) < minLen {
 		return false, uint8(len(incoming))

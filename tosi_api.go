@@ -187,23 +187,25 @@ func (c *TOSIConn) Read(b []byte) (n int, err error) {
 	_, err = c.tcpConn.Read(buf)
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
-		// try to read a DT 
+		// try to read a DT (or ED) 
 		buf = make([]byte, tlen-tpktHlen)
 		_, err = c.tcpConn.Read(buf)
 		if err != nil {
 			return 0, err
 		}
-		isDT, idx := isDT(buf)
-		if isDT {
-			return handleDT(c, b, buf)
+		isDT, _ := isDT(buf)
+		isED, idx := isED(buf)
+		if isDT || isED {
+			return handleData(c, b, buf)
 		}
-		err = handleDTError(c, buf, idx)
+		err = handleDataError(c, buf, idx)
 	}
 	return 0, err
 }
 
-// parse a DT, handling errors and buffering issues 
-func handleDT(c *TOSIConn, b, tpdu []byte) (n int, err error) {
+// parse a DT or ED, handling errors and buffering issues 
+// TODO: must check for maximum TPDU size
+func handleData(c *TOSIConn, b, tpdu []byte) (n int, err error) {
 	valid, erBuf := validateDt(tpdu)
 	if !valid {
 		// we got an invalid DT
@@ -230,8 +232,8 @@ func handleDT(c *TOSIConn, b, tpdu []byte) (n int, err error) {
 	return
 }
 
-// handle a tpdu which was expected to be a DT, but it's not 
-func handleDTError(c *TOSIConn, tpdu []byte, errIdx uint8) (err error) {
+// handle a tpdu which was expected to be a DT or ED, but it's not 
+func handleDataError(c *TOSIConn, tpdu []byte, errIdx uint8) (err error) {
 	// no DT received, maybe it's an ER or DR
 	isER, _ := isER(tpdu)
 	if isER {
