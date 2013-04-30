@@ -80,6 +80,7 @@ const (
 	dtId     = 0xf0
 	eotIdx   = 2
 	nrEot    = 0x80
+	nrNonEot = 0x00
 	// ED-related defs
 	edMinLen = 3
 	edMaxLen = 19
@@ -533,8 +534,8 @@ func getERerror(tpdu []byte) (e error) {
 }
 
 /* DT - Data Transfer */
-func dt(userData []byte) (tpdu []byte) {
-	tpdu = append([]byte{dtId}, nrEot)
+func dt(userData []byte, endOfTsdu byte) (tpdu []byte) {
+	tpdu = append([]byte{dtId}, endOfTsdu)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
@@ -549,8 +550,8 @@ func isDT(incoming []byte) (found bool, tlen uint8) {
 
 /* ED - Expedited Data. This is a non-standard TPDU defined in RFC 1006 */
 /* It is equal to DT, just with a different ID */
-func ed(userData []byte) (tpdu []byte) {
-	tpdu = append([]byte{edId}, nrEot)
+func ed(userData []byte, endOfTsdu byte) (tpdu []byte) {
+	tpdu = append([]byte{edId}, endOfTsdu)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)

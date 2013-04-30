@@ -376,8 +376,8 @@ func (c *TOSIConn) WriteTOSI(b []byte, expedited bool) (n int, err error) {
 	return c.writeTpdu(b, ed, edMaxLen-edMinLen)
 }
 
-// write data using the TPDU type implemented by the tpdu argument
-func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte) []byte, maxSduSize uint64) (n int, err error) {
+// write data using the TPDU type implemented by the tpdu argument. 
+func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte, byte) []byte, maxSduSize uint64) (n int, err error) {
 	if b == nil {
 		return 0, errors.New("invalid input")
 	}
@@ -386,13 +386,19 @@ func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte) []byte, maxSduSize uint
 	if bufLen > maxSduSize {
 		numWrites := (bufLen / maxSduSize) + 1
 		var i uint64
+		var endOfTsdu byte
 		for i = 0; i < numWrites; i++ {
 			start := maxSduSize * i
 			end := maxSduSize * (i + 1)
 			if end > bufLen {
 				end = bufLen
 			}
-			part := tpkt(tpdu(b[start:end]))
+			if i == numWrites-1 {
+				endOfTsdu = nrEot
+			} else {
+				endOfTsdu = nrNonEot
+			}
+			part := tpkt(tpdu(b[start:end], endOfTsdu))
 			nPart, err := c.tcpConn.Write(part)
 			n = n + nPart
 			if err != nil {
@@ -401,7 +407,7 @@ func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte) []byte, maxSduSize uint
 		}
 		return
 	}
-	return c.tcpConn.Write(tpkt(tpdu(b)))
+	return c.tcpConn.Write(tpkt(tpdu(b, nrEot)))
 }
 
 // TOSIAddr represents the address of a TOSI end point. 
