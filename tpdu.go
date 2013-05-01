@@ -78,13 +78,14 @@ const (
 	// DT-related defs 
 	dtMinLen = 3
 	dtId     = 0xf0
-	eotIdx   = 2
-	nrEot    = 0x80
-	nrNonEot = 0x00
 	// ED-related defs
 	edMinLen = 3
 	edMaxLen = 19
 	edId     = 0x10
+	// DT and ED common defs
+	eotIdx   = 2
+	nrEot    = 0x80
+	nrNonEot = 0x00
 )
 
 // variables associated with a connection negotiation
@@ -295,7 +296,7 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 				return false, erBuf[:index] // invalid length
 			}
 			cv := connVars{prefTpduSize: incoming[:pLen]}
-			size, _ := getMaxTpduSize(cv)
+			size := getMaxTpduSize(cv)
 			if size > defTpduSize {
 				return false, erBuf[:index] // invalid size
 			}
@@ -325,6 +326,8 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 
 // validate a CC TPDU, or return the bit pattern of the rejected TPDU header 
 // up to and including the octet which caused the rejection.
+// NOTE: it is legal to ignore the prefTpduSize parameter, even if it was 
+// present in the CR.
 func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 	// dstref must be equal to the srcref of the CR tpdu
 	if !bytes.Equal(incoming[2:4], crCv.srcRef[:]) {
@@ -332,6 +335,10 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 	}
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
+		// tpduSize required?
+		if crCv.tpduSize > 0 {
+			return false, incoming
+		}
 		// all ok
 		return true, nil
 	}
@@ -339,6 +346,8 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 	index := connMinLen
 	// discard the fixed part
 	incoming = incoming[connMinLen:]
+	tpduSizeFound := false
+	prefTpduSizeFound := false
 	// decode the variable part
 	for len(incoming) > 2 {
 		id := incoming[0]
@@ -366,21 +375,35 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 				return false, erBuf[:index] // invalid size
 			}
 			ccCv := connVars{tpduSize: incoming[0]}
-			ccSize, _ := getMaxTpduSize(ccCv)
-			crSize, _ := getMaxTpduSize(crCv)
+			ccSize := getMaxTpduSize(ccCv)
+			crSize := getMaxTpduSize(crCv)
 			if ccSize > crSize {
 				return false, erBuf[:index] // invalid size
 			}
+			if prefTpduSizeFound {
+				// illegal to have both tpduSize and prefTpduSize
+				return false, erBuf[:index]
+			}
+			tpduSizeFound = true
 		case prefTpduSizeID:
 			if pLen > prefTpduSizeLen {
 				return false, erBuf[:index] // invalid length
 			}
 			ccCv := connVars{prefTpduSize: incoming[:pLen]}
-			ccSize, _ := getMaxTpduSize(ccCv)
-			crSize, _ := getMaxTpduSize(crCv)
+			ccSize := getMaxTpduSize(ccCv)
+			crSize := getMaxTpduSize(crCv)
 			if ccSize > crSize {
 				return false, erBuf[:index] // invalid size
 			}
+			if tpduSizeFound {
+				// illegal to have both tpduSize and prefTpduSize
+				return false, erBuf[:index]
+			}
+			if crCv.prefTpduSize == nil {
+				// illegal to use prefTpduSize if not used by CR
+				return false, erBuf[:index]
+			}
+			prefTpduSizeFound = true
 		case optionsID:
 			if pLen > optionsLen {
 				return false, erBuf[:index] // invalid length
@@ -399,6 +422,10 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 		if len(incoming) > pLen {
 			incoming = incoming[pLen:]
 		} else {
+			// tpduSize required?
+			if (crCv.tpduSize > 0) && (!tpduSizeFound) && (!prefTpduSizeFound) {
+				return false, erBuf[:]
+			}
 			return true, nil // all ok
 		}
 	}
@@ -411,7 +438,7 @@ func validateDt(incoming []byte, maxTpduSize uint64) (valid bool, erBuf []byte) 
 	if uint64(len(incoming)) > maxTpduSize {
 		return false, incoming[:maxTpduSize+1]
 	}
-	if (incoming[eotIdx] == 0x00) || (incoming[eotIdx] == 0x80) {
+	if (incoming[eotIdx] == nrNonEot) || (incoming[eotIdx] == nrEot) {
 		return true, nil
 	}
 	return false, incoming[:dtMinLen]
@@ -473,14 +500,12 @@ func getDRerror(tpdu []byte) (e error) {
 // returns the maximum TPDU size for a connection.
 // According to RFC1006, the defaul value is 65531
 // instead of 128.
-func getMaxTpduSize(cv connVars) (size uint64, noPref bool) {
-	noPref = false
+func getMaxTpduSize(cv connVars) (size uint64) {
 	if cv.tpduSize > 0 {
 		size_shift := uint8(cv.tpduSize) - 7
 		size = (minTpduSize << size_shift)
 	} else {
 		size = defTpduSize
-		noPref = true
 	}
 	if cv.prefTpduSize != nil {
 		padding := make([]byte, 8-len(cv.prefTpduSize))
@@ -488,7 +513,6 @@ func getMaxTpduSize(cv connVars) (size uint64, noPref bool) {
 		buf := bytes.NewBuffer(paddedSize)
 		binary.Read(buf, binary.BigEndian, &size)
 		size = size * minTpduSize
-		noPref = false
 	}
 	return
 }

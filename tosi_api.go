@@ -142,17 +142,11 @@ func handleCc(tpdu []byte, tcp *net.TCPConn, laddr, raddr *TOSIAddr, cv connVars
 		tcpAddr = tcp.LocalAddr().(*net.TCPAddr)
 		laddr = &TOSIAddr{tcpAddr.IP, nil}
 	}
-	// determine the max TPDU size
-	maxTpduSize, _ := getMaxTpduSize(cv)
-	ccSize, noPref := getMaxTpduSize(repCv)
-	if !noPref {
-		maxTpduSize = ccSize
-	}
 	return &TOSIConn{
 		tcpConn:      *tcp,
 		laddr:        *laddr,
 		raddr:        *raddr,
-		maxTpduSize:  maxTpduSize,
+		maxTpduSize:  getMaxTpduSize(repCv),
 		srcRef:       cv.srcRef,
 		dstRef:       repCv.srcRef,
 		useExpedited: repCv.options > 0}, nil
@@ -519,7 +513,9 @@ func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn) (c net.Conn, err 
 		// reply with a CC
 		repCv.locTsel = cv.locTsel
 		repCv.remTsel = l.addr.Tsel
-		repCv.tpduSize = cv.tpduSize
+		if cv.prefTpduSize == nil {
+			repCv.tpduSize = cv.tpduSize
+		}
 		repCv.prefTpduSize = cv.prefTpduSize
 		repCv.srcRef = [2]byte{0x02, 0x02} // random non-zero value
 		repCv.dstRef = cv.srcRef
@@ -538,13 +534,11 @@ func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn) (c net.Conn, err 
 		var tcpAddr *net.TCPAddr
 		tcpAddr = tcp.RemoteAddr().(*net.TCPAddr)
 		raddr := TOSIAddr{tcpAddr.IP, cv.locTsel}
-		// determine the max TPDU size
-		maxTpduSize, _ := getMaxTpduSize(cv)
 		return &TOSIConn{
 			tcpConn:      *tcp,
 			laddr:        *l.addr,
 			raddr:        raddr,
-			maxTpduSize:  maxTpduSize,
+			maxTpduSize:  getMaxTpduSize(cv),
 			srcRef:       repCv.srcRef,
 			dstRef:       cv.srcRef,
 			useExpedited: cv.options > 0}, nil
