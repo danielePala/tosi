@@ -1,5 +1,6 @@
 /*
- Definition of the TPDUs used by ISO 8073 transport Class 0. 
+ Definition of the TPDUs used by ISO 8073 transport Class 0 and
+ associated validation functions. 
 
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
@@ -29,8 +30,10 @@ import (
 )
 
 const (
-	// len of a TPKT header
-	tpktHlen = 4
+	// TPKT-related defs
+	tpktHlen = 4 // len of a TPKT header
+	tpktVrsn = 0x03
+	tpktReserved = 0x00
 	// default and min TPDU size
 	defTpduSize = 65531
 	minTpduSize = 128
@@ -91,9 +94,9 @@ const (
 // variables associated with a connection negotiation
 type connVars struct {
 	locTsel, remTsel []byte // local and remote transport selectors
-	tpduSize         byte
+	tpduSize         byte   // TPDU size option
 	prefTpduSize     []byte // preferred TPDU size option
-	srcRef, dstRef   [2]byte
+	srcRef, dstRef   [2]byte // src and dst references
 	options          byte // "Additional option selection"
 }
 
@@ -254,18 +257,23 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 	if !bytes.Equal(incoming[2:4], []byte{0x00, 0x00}) {
 		return false, incoming[:4]
 	}
+	// check the Length Indicator field
+	_, lenInd := isCR(incoming)
+	lenInd = lenInd + 1
+	if len(incoming) < int(lenInd) {
+		return false, incoming[:1] // invalid Length Indicator
+	}
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
-		// remTsel required?
-		if remTsel != nil {
+		if remTsel != nil { // remTsel required?
 			return false, incoming
 		}
 		return true, nil // all ok
 	}
 	erBuf = incoming[:]
 	index := connMinLen
-	// discard the fixed part
-	incoming = incoming[connMinLen:]
+	// discard the fixed part and user data (if present)
+	incoming = incoming[connMinLen:lenInd]
 	remTselFound := false
 	// decode the variable part
 	for len(incoming) > 2 {
@@ -321,7 +329,7 @@ func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
 			return true, nil // all ok
 		}
 	}
-	return
+	return false, erBuf[:]
 }
 
 // validate a CC TPDU, or return the bit pattern of the rejected TPDU header 
@@ -333,19 +341,23 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 	if !bytes.Equal(incoming[2:4], crCv.srcRef[:]) {
 		return false, incoming[:4]
 	}
+	// check the Length Indicator field
+	_, lenInd := isCC(incoming)
+	lenInd = lenInd + 1 // add the Length Indicator field size (1 byte)
+	if len(incoming) < int(lenInd) {
+		return false, incoming[:1] // invalid Length Indicator
+	}
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
-		// tpduSize required?
-		if crCv.tpduSize > 0 {
+		if crCv.tpduSize > 0 { // tpduSize required?
 			return false, incoming
 		}
-		// all ok
-		return true, nil
+		return true, nil // all ok
 	}
 	erBuf = incoming[:]
 	index := connMinLen
-	// discard the fixed part
-	incoming = incoming[connMinLen:]
+	// discard the fixed part and user data (if present)
+	incoming = incoming[connMinLen:lenInd]
 	tpduSizeFound := false
 	prefTpduSizeFound := false
 	// decode the variable part
@@ -429,7 +441,7 @@ func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
 			return true, nil // all ok
 		}
 	}
-	return
+	return false, erBuf[:]
 }
 
 // validate a DT TPDU, or return the bit pattern of the rejected TPDU header 
@@ -605,9 +617,8 @@ func isType(incoming []byte, id byte, minLen int) (found bool, tlen uint8) {
 
 /* create a TPKT from a TPDU */
 func tpkt(tpdu []byte) (tpkt []byte) {
-	header := []byte{0x03, 0x00}
-	// length includes this header too
-	pLen := uint16(len(tpdu) + 4)
+	header := []byte{tpktVrsn, tpktReserved}
+	pLen := uint16(len(tpdu) + tpktHlen) // length includes this header too
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, pLen)
 	header = append(header, buf.Bytes()...)
@@ -620,7 +631,7 @@ func isTPKT(incoming []byte) (found bool, tlen uint16) {
 	if len(incoming) < tpktHlen {
 		return false, 0
 	}
-	if incoming[0] == 0x03 {
+	if incoming[0] == tpktVrsn {
 		found = true
 		buf := bytes.NewBuffer(incoming[2:4])
 		err := binary.Read(buf, binary.BigEndian, &tlen)

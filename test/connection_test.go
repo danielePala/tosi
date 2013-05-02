@@ -199,5 +199,5 @@ func checkError(err error, t *testing.T) {
 func checkWantedError(err error, t *testing.T) {
 	if err == nil {
 		t.FailNow()
-	}
+	} 
 }

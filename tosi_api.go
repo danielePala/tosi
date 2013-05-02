@@ -1,4 +1,7 @@
-/* 
+/*
+ Definition of the external interface of the package, based on the 
+ constructs defined in the standard 'net' package.
+ 
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -28,7 +31,7 @@ import (
 )
 
 const (
-	rfc1006port = 102
+	rfc1006port = 102 // TCP port used by TOSI servers
 )
 
 // TOSIConn is an implementation of the net.Conn interface 
@@ -89,7 +92,8 @@ func DialExpeditedTOSI(tnet string, laddr, raddr *TOSIAddr) (*TOSIConn, error, b
 func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 	TCPnet := tosiToTCPnet(tnet)
 	if TCPnet == "" {
-		return nil, errors.New("invalid network")
+		// this check is needed by Go versions < 1.1
+		return nil, errors.New("unknown network")
 	}
 	TCPraddr := tosiToTCPaddr(*raddr)
 	// try to establish a TCP connection
@@ -189,7 +193,7 @@ func tosiToTCPnet(tosi string) (tcp string) {
 
 // convert a tosi addr to a TCP addr
 func tosiToTCPaddr(tosi TOSIAddr) (tcp net.TCPAddr) {
-	tcp = net.TCPAddr{tosi.IP, rfc1006port}
+	tcp = net.TCPAddr{IP: tosi.IP, Port: rfc1006port}
 	return
 }
 
@@ -406,8 +410,8 @@ func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte, byte) []byte, maxSduSiz
 
 // TOSIAddr represents the address of a TOSI end point. 
 type TOSIAddr struct {
-	IP   net.IP
-	Tsel []byte
+	IP   net.IP // IP address
+	Tsel []byte // Transport selector (optional)
 }
 
 // Network returns the address's network name, "tosi".
@@ -567,7 +571,8 @@ func ListenTOSI(tnet string, laddr *TOSIAddr) (*TOSIListener, error) {
 	tcpAddr := tosiToTCPaddr(*laddr)
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
-		return nil, errors.New("invalid network")
+		// this check is needed by Go versions < 1.1 
+		return nil, errors.New("unknown network")
 	}
 	listener, err := net.ListenTCP(tcpNet, &tcpAddr)
 	if err != nil {
