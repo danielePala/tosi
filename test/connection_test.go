@@ -134,6 +134,21 @@ func TestServerWrongNet(t *testing.T) {
 	go tosiServerWrongNet(t)
 }
 
+// Test 9
+// test connection establishment with nil remote address. It should fail.
+func TestNilRaddr(t *testing.T) {
+	// try to connect
+	_, err := tosi.DialTOSI("tosi", nil, nil)
+	checkWantedError(err, t)
+}
+
+// Test 10
+// launch server with nil local address. It should fail.
+func TestServerNilLaddr(t *testing.T) {
+	// start a faulty server
+	go tosiServerNilLaddr(t)
+}
+
 // a tosi server. No fault is expected.
 func tosiServer(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
@@ -187,6 +202,12 @@ func tosiServerWrongNet(t *testing.T) {
 	checkWantedError(err, t)
 }
 
+// a tosi server with nil local address. It should fail.
+func tosiServerNilLaddr(t *testing.T) {
+	_, err := tosi.ListenTOSI("tosi", nil)
+	checkWantedError(err, t)
+}
+
 // check for unexpected errors
 func checkError(err error, t *testing.T) {
 	if err != nil {
@@ -199,5 +220,5 @@ func checkError(err error, t *testing.T) {
 func checkWantedError(err error, t *testing.T) {
 	if err == nil {
 		t.FailNow()
-	} 
+	}
 }

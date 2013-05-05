@@ -38,9 +38,10 @@ func TestWrite2bytesED(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	conn, err, expedited := tosi.DialExpeditedTOSI("tosi", nil, tosiAddr)
+	opt := tosi.DialOptions{Expedited: true}
+	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -63,9 +64,10 @@ func TestWriteMaxED(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	conn, err, expedited := tosi.DialExpeditedTOSI("tosi", nil, tosiAddr)
+	opt := tosi.DialOptions{Expedited: true}
+	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -89,9 +91,10 @@ func TestWrite2bytesED2(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	conn, err, expedited := tosi.DialExpeditedTOSI("tosi", nil, tosiAddr)
+	opt := tosi.DialOptions{Expedited: true}
+	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -114,9 +117,10 @@ func TestWriteMaxED2(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	conn, err, expedited := tosi.DialExpeditedTOSI("tosi", nil, tosiAddr)
+	opt := tosi.DialOptions{Expedited: true}
+	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -136,9 +140,9 @@ func tosiServerRead2bytesED(t *testing.T) {
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
 	// listen for connections
-	conn, err, expedited := listener.AcceptTOSI()
+	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.(*tosi.TOSIConn).UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -171,9 +175,9 @@ func tosiServerReadMaxED(t *testing.T) {
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
 	// listen for connections
-	conn, err, expedited := listener.AcceptTOSI()
+	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.(*tosi.TOSIConn).UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -206,9 +210,9 @@ func tosiServerRead1byteED(t *testing.T) {
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
 	// listen for connections
-	conn, err, expedited := listener.AcceptTOSI()
+	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.(*tosi.TOSIConn).UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
@@ -255,9 +259,9 @@ func tosiServerReadMaxED2(t *testing.T) {
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
 	// listen for connections
-	conn, err, expedited := listener.AcceptTOSI()
+	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if expedited == false {
+	if conn.(*tosi.TOSIConn).UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}

@@ -31,8 +31,8 @@ import (
 
 const (
 	// TPKT-related defs
-	tpktHlen = 4 // len of a TPKT header
-	tpktVrsn = 0x03
+	tpktHlen     = 4 // len of a TPKT header
+	tpktVrsn     = 0x03
 	tpktReserved = 0x00
 	// default and min TPDU size
 	defTpduSize = 65531
@@ -53,11 +53,12 @@ const (
 	tpduSizeLen     = 0x01
 	prefTpduSizeLen = 0x04
 	optionsLen      = 0x01
-	tpduSizeMinVal  = 7
-	tpduSizeMaxVal  = 11
-	optionsMinVal   = 0
-	optionsMaxVal   = 1
+	tpduSizeMin     = 7
+	tpduSizeMax     = 11
+	optionsMin      = 0
+	optionsMax      = 1
 	classOptIdx     = 6
+	maxDataLen      = 32
 	// DR-related defs
 	drMinLen    = 7
 	drId        = 0x80
@@ -93,11 +94,12 @@ const (
 
 // variables associated with a connection negotiation
 type connVars struct {
-	locTsel, remTsel []byte // local and remote transport selectors
-	tpduSize         byte   // TPDU size option
-	prefTpduSize     []byte // preferred TPDU size option
+	locTsel, remTsel []byte  // local and remote transport selectors
+	tpduSize         byte    // TPDU size option
+	prefTpduSize     []byte  // preferred TPDU size option
 	srcRef, dstRef   [2]byte // src and dst references
-	options          byte // "Additional option selection"
+	options          byte    // "Additional option selection"
+	userData         []byte  // initial user data
 }
 
 /* CR - Connection Request */
@@ -116,6 +118,7 @@ func cr(cv connVars) (tpdu []byte) {
 	// assemble the whole tpdu
 	tpdu = append(fixed, variable...)
 	pLen := byte(len(tpdu))
+	tpdu = append(tpdu, cv.userData...) // add initial user data, if present
 	tpdu = append([]byte{pLen}, tpdu...)
 	return
 }
@@ -147,6 +150,7 @@ func cc(cv connVars) (tpdu []byte) {
 	variable := setVarPart(cv)
 	tpdu = append(fixed, variable...)
 	pLen := byte(len(tpdu))
+	tpdu = append(tpdu, cv.userData...) // add initial user data, if present
 	tpdu = append([]byte{pLen}, tpdu...)
 	return
 }
@@ -209,6 +213,12 @@ func getConnVars(incoming []byte) (cv connVars) {
 	if len(incoming) <= connMinLen {
 		return
 	}
+	// calculate the length of fixed+variable part
+	fixVarLen := incoming[0] + 1 // add the Length Indicator size (1 byte)
+	if len(incoming) > int(fixVarLen) {
+		cv.userData = incoming[fixVarLen:] // we have some user data
+		incoming = incoming[:fixVarLen]
+	}
 	// discard the fixed part
 	incoming = incoming[connMinLen:]
 	// decode the variable part
@@ -252,196 +262,230 @@ func getConnVars(incoming []byte) (cv connVars) {
 
 // validate a CR TPDU, or return the bit pattern of the rejected TPDU header 
 // up to and including the octet which caused the rejection.
-func validateCr(incoming []byte, remTsel []byte) (valid bool, erBuf []byte) {
-	// dstref must be zero
-	if !bytes.Equal(incoming[2:4], []byte{0x00, 0x00}) {
-		return false, incoming[:4]
+func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
+	// validate fixed part - dstref must be zero
+	ok, vars := validateFixed(incoming, []byte{0x00, 0x00}, remTsel != nil)
+	if !ok || vars == nil {
+		return ok, vars
 	}
-	// check the Length Indicator field
-	_, lenInd := isCR(incoming)
-	lenInd = lenInd + 1
-	if len(incoming) < int(lenInd) {
-		return false, incoming[:1] // invalid Length Indicator
-	}
-	// see if there is a variable part
-	if len(incoming) <= connMinLen {
-		if remTsel != nil { // remTsel required?
-			return false, incoming
-		}
-		return true, nil // all ok
-	}
-	erBuf = incoming[:]
 	index := connMinLen
-	// discard the fixed part and user data (if present)
-	incoming = incoming[connMinLen:lenInd]
 	remTselFound := false
 	// decode the variable part
-	for len(incoming) > 2 {
-		id := incoming[0]
-		pLen := int(incoming[1])
-		incoming = incoming[2:]
-		index = index + 2 + pLen
-		if (len(incoming) < pLen) || (pLen < 1) {
-			return false, erBuf // inconsistent option length
+	for len(vars) > 2 {
+		id := vars[0]
+		optLen := int(vars[1]) + 2
+		index += optLen
+		if (len(vars) < optLen) || (optLen < 3) {
+			return false, incoming // inconsistent option length
 		}
 		switch id {
 		case locTselID: // always ok
 		case remTselID:
-			if !bytes.Equal(incoming[:pLen], remTsel) {
-				return false, erBuf[:index] // wrong remTsel
-			}
+			ok = bytes.Equal(vars[2:optLen], remTsel)
 			remTselFound = true
 		case tpduSizeID:
-			if pLen > tpduSizeLen {
-				return false, erBuf[:index] // invalid length
-			}
-			tpduSize := int8(incoming[0])
-			if (tpduSize < tpduSizeMinVal) || (tpduSize > tpduSizeMaxVal) {
-				return false, erBuf[:index] // invalid size
-			}
+			ok = validCrTpduSize(vars)
 		case prefTpduSizeID:
-			if pLen > prefTpduSizeLen {
-				return false, erBuf[:index] // invalid length
-			}
-			cv := connVars{prefTpduSize: incoming[:pLen]}
-			size := getMaxTpduSize(cv)
-			if size > defTpduSize {
-				return false, erBuf[:index] // invalid size
-			}
+			ok = validCrPrefTpduSize(vars)
 		case optionsID:
-			if pLen > optionsLen {
-				return false, erBuf[:index] // invalid length
-			}
-			options := int8(incoming[0])
-			if (options < optionsMinVal) || (options > optionsMaxVal) {
-				return false, erBuf[:index] // invalid options
-			}
+			ok = validCrOptions(vars)
 		default:
-			return false, erBuf[:index] // unknown option
+			ok = false // unknown option
 		}
-		if len(incoming) > pLen {
-			incoming = incoming[pLen:]
-		} else {
-			// remTsel required?	
+		if !ok {
+			return false, incoming[:index]
+		}
+		if len(vars) <= optLen { // this is the last var
 			if (remTsel != nil) && (remTselFound == false) {
-				return false, erBuf[:]
+				return false, incoming // remTsel was required
 			}
 			return true, nil // all ok
 		}
+		vars = vars[optLen:] // go to next var
 	}
-	return false, erBuf[:]
+	return false, incoming
 }
 
 // validate a CC TPDU, or return the bit pattern of the rejected TPDU header 
 // up to and including the octet which caused the rejection.
 // NOTE: it is legal to ignore the prefTpduSize parameter, even if it was 
-// present in the CR.
-func validateCc(incoming []byte, crCv connVars) (valid bool, erBuf []byte) {
-	// dstref must be equal to the srcref of the CR tpdu
-	if !bytes.Equal(incoming[2:4], crCv.srcRef[:]) {
+// present in the CR. It is illegal to have both tpduSize and prefTpduSize
+// in a CC TPDU.
+func validateCc(incoming []byte, crCv connVars) (bool, []byte) {
+	// validate fixed part - dstref must be equal to the srcref of the CR
+	ok, vars := validateFixed(incoming, crCv.srcRef[:], crCv.tpduSize > 0)
+	if !ok || vars == nil {
+		return ok, vars
+	}
+	index := connMinLen
+	tpduSize := false
+	prefTpduSize := false
+	// decode the variable part
+	for len(vars) > 2 {
+		id := vars[0]
+		optLen := int(vars[1]) + 2
+		index += optLen
+		if (len(vars) < optLen) || (optLen < 3) {
+			return false, incoming // inconsistent option length
+		}
+		switch id {
+		case locTselID:
+			ok = bytes.Equal(vars[2:optLen], crCv.locTsel)
+		case remTselID:
+			ok = bytes.Equal(vars[2:optLen], crCv.remTsel)
+		case tpduSizeID:
+			ok = validCcTpduSize(vars, crCv, prefTpduSize)
+			tpduSize = true
+		case prefTpduSizeID:
+			ok = validCcPrefTpduSize(vars, crCv, tpduSize)
+			prefTpduSize = true
+		case optionsID:
+			ok = validCcOptions(vars, crCv)
+		default:
+			ok = false // unknown option
+		}
+		if !ok {
+			return false, incoming[:index]
+		}
+		if len(vars) <= optLen { // this is the last var
+			if (crCv.tpduSize > 0) && !tpduSize && !prefTpduSize {
+				return false, incoming // tpduSize was required
+			}
+			return true, nil // all ok
+		}
+		vars = vars[optLen:] // go to next var
+	}
+	return false, incoming
+}
+
+// validate the fixed part of a CR or CC. If validation is ok, the variable
+// part of the TPDU is returned, if present. Otherwise, the bit pattern of 
+// the rejected TPDU header up to and including the octet which caused the 
+// rejection is returned. If needVar is true, the TPDU is considered valid
+// only if it has a variable part.
+func validateFixed(incoming, dstRef []byte, needVar bool) (bool, []byte) {
+	if !bytes.Equal(incoming[2:4], dstRef) {
 		return false, incoming[:4]
 	}
-	// check the Length Indicator field
-	_, lenInd := isCC(incoming)
-	lenInd = lenInd + 1 // add the Length Indicator field size (1 byte)
-	if len(incoming) < int(lenInd) {
+	// calculate the length of fixed+variable part
+	fixVarLen := incoming[0] + 1 // add the Length Indicator size (1 byte)
+	userDataLen := len(incoming) - int(fixVarLen)
+	if userDataLen < 0 {
 		return false, incoming[:1] // invalid Length Indicator
+	}
+	if userDataLen > maxDataLen {
+		return false, incoming
 	}
 	// see if there is a variable part
 	if len(incoming) <= connMinLen {
-		if crCv.tpduSize > 0 { // tpduSize required?
+		if needVar { // variable part required?
 			return false, incoming
 		}
 		return true, nil // all ok
 	}
-	erBuf = incoming[:]
-	index := connMinLen
-	// discard the fixed part and user data (if present)
-	incoming = incoming[connMinLen:lenInd]
-	tpduSizeFound := false
-	prefTpduSizeFound := false
-	// decode the variable part
-	for len(incoming) > 2 {
-		id := incoming[0]
-		pLen := int(incoming[1])
-		incoming = incoming[2:]
-		index = index + 2 + pLen
-		if (len(incoming) < pLen) || (pLen < 1) {
-			return false, erBuf // inconsistent option length
-		}
-		switch id {
-		case locTselID:
-			if !bytes.Equal(incoming[:pLen], crCv.locTsel) {
-				return false, erBuf[:index] // wrong locTsel
-			}
-		case remTselID:
-			if !bytes.Equal(incoming[:pLen], crCv.remTsel) {
-				return false, erBuf[:index] // wrong remTsel
-			}
-		case tpduSizeID:
-			if pLen > tpduSizeLen {
-				return false, erBuf[:index] // invalid length
-			}
-			tpduSize := int8(incoming[0])
-			if (tpduSize < tpduSizeMinVal) || (tpduSize > tpduSizeMaxVal) {
-				return false, erBuf[:index] // invalid size
-			}
-			ccCv := connVars{tpduSize: incoming[0]}
-			ccSize := getMaxTpduSize(ccCv)
-			crSize := getMaxTpduSize(crCv)
-			if ccSize > crSize {
-				return false, erBuf[:index] // invalid size
-			}
-			if prefTpduSizeFound {
-				// illegal to have both tpduSize and prefTpduSize
-				return false, erBuf[:index]
-			}
-			tpduSizeFound = true
-		case prefTpduSizeID:
-			if pLen > prefTpduSizeLen {
-				return false, erBuf[:index] // invalid length
-			}
-			ccCv := connVars{prefTpduSize: incoming[:pLen]}
-			ccSize := getMaxTpduSize(ccCv)
-			crSize := getMaxTpduSize(crCv)
-			if ccSize > crSize {
-				return false, erBuf[:index] // invalid size
-			}
-			if tpduSizeFound {
-				// illegal to have both tpduSize and prefTpduSize
-				return false, erBuf[:index]
-			}
-			if crCv.prefTpduSize == nil {
-				// illegal to use prefTpduSize if not used by CR
-				return false, erBuf[:index]
-			}
-			prefTpduSizeFound = true
-		case optionsID:
-			if pLen > optionsLen {
-				return false, erBuf[:index] // invalid length
-			}
-			crOptions := int8(crCv.options)
-			ccOptions := int8(incoming[0])
-			if (ccOptions < optionsMinVal) || (ccOptions > optionsMaxVal) {
-				return false, erBuf[:index] // invalid options
-			}
-			if ccOptions > crOptions {
-				return false, erBuf[:index] // invalid options
-			}
-		default:
-			return false, erBuf[:index] // unknown option
-		}
-		if len(incoming) > pLen {
-			incoming = incoming[pLen:]
-		} else {
-			// tpduSize required?
-			if (crCv.tpduSize > 0) && (!tpduSizeFound) && (!prefTpduSizeFound) {
-				return false, erBuf[:]
-			}
-			return true, nil // all ok
-		}
+	// all ok, discard the fixed part and user data (if present)
+	return true, incoming[connMinLen:fixVarLen]
+}
+
+// validate the 'TPDU size' option of a CR packet
+func validCrTpduSize(vars []byte) bool {
+	optLen := int(vars[1])
+	if optLen > tpduSizeLen {
+		return false // invalid length
 	}
-	return false, erBuf[:]
+	tpduSize := int8(vars[2])
+	if (tpduSize < tpduSizeMin) || (tpduSize > tpduSizeMax) {
+		return false // invalid size
+	}
+	return true
+}
+
+// validate the 'preferred TPDU size' option of a CR packet
+func validCrPrefTpduSize(vars []byte) bool {
+	optLen := int(vars[1])
+	if optLen > prefTpduSizeLen {
+		return false // invalid length
+	}
+	cv := connVars{prefTpduSize: vars[2:optLen]}
+	size := getMaxTpduSize(cv)
+	if size > defTpduSize {
+		return false // invalid size
+	}
+	return true
+}
+
+// validate the 'Additional option selection' option of a CR packet
+func validCrOptions(vars []byte) bool {
+	optLen := int(vars[1])
+	if optLen > optionsLen {
+		return false // invalid length
+	}
+	options := int8(vars[2])
+	if (options < optionsMin) || (options > optionsMax) {
+		return false // invalid options
+	}
+	return true
+}
+
+// validate the 'TPDU size' option of a CC packet
+func validCcTpduSize(vars []byte, crCv connVars, prefTpduSize bool) bool {
+	optLen := int(vars[1])
+	tpduSize := vars[2]
+	if optLen > tpduSizeLen {
+		return false // invalid length
+	}
+	if (tpduSize < tpduSizeMin) || (tpduSize > tpduSizeMax) {
+		return false // invalid size
+	}
+	ccCv := connVars{tpduSize: byte(tpduSize)}
+	ccSize := getMaxTpduSize(ccCv)
+	crSize := getMaxTpduSize(crCv)
+	if ccSize > crSize {
+		return false // invalid size
+	}
+	if prefTpduSize {
+		return false
+	}
+	return true
+}
+
+// validate the 'preferred TPDU size' option of a CC packet
+func validCcPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
+	optLen := int(vars[1])
+	if optLen > prefTpduSizeLen {
+		return false // invalid length
+	}
+	ccCv := connVars{prefTpduSize: vars[2:optLen]}
+	ccSize := getMaxTpduSize(ccCv)
+	crSize := getMaxTpduSize(crCv)
+	if ccSize > crSize {
+		return false // invalid size
+	}
+	if crCv.prefTpduSize == nil {
+		// illegal to use prefTpduSize if not used by CR
+		return false
+	}
+	if tpduSize {
+		return false
+	}
+	return true
+}
+
+// validate the 'Additional option selection' option of a CC packet
+func validCcOptions(vars []byte, crCv connVars) bool {
+	optLen := int(vars[1])
+	if optLen > optionsLen {
+		return false // invalid length
+	}
+	crOptions := int8(crCv.options)
+	ccOptions := int8(vars[2])
+	if (ccOptions < optionsMin) || (ccOptions > optionsMax) {
+		return false // invalid options
+	}
+	if ccOptions > crOptions {
+		return false // invalid options
+	}
+	return true
 }
 
 // validate a DT TPDU, or return the bit pattern of the rejected TPDU header 
@@ -602,15 +646,12 @@ func isED(incoming []byte) (found bool, tlen uint8) {
 
 // determine if a packet is of a certain type, and read its Length Indicator
 // in case of error tlen is the length of the input slice up to and including the faulty byte
-func isType(incoming []byte, id byte, minLen int) (found bool, tlen uint8) {
+func isType(incoming []byte, id byte, minLen int) (bool, uint8) {
 	if len(incoming) < minLen {
 		return false, uint8(len(incoming))
 	}
 	if incoming[1] == id {
-		found = true
-		buf := bytes.NewBuffer(incoming[0:1])
-		binary.Read(buf, binary.BigEndian, &tlen)
-		return
+		return true, incoming[0]
 	}
 	return false, 2
 }
