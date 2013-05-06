@@ -1,6 +1,6 @@
 /*
  Definition of the TPDUs used by ISO 8073 transport Class 0 and
- associated validation functions. 
+ associated validation functions.
 
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
@@ -79,7 +79,7 @@ const (
 	erParamVal  = 0x03
 	erCauseIdx  = 4
 	erInvIdx    = 7
-	// DT-related defs 
+	// DT-related defs
 	dtMinLen = 3
 	dtId     = 0xf0
 	// ED-related defs
@@ -103,7 +103,7 @@ type connVars struct {
 }
 
 /* CR - Connection Request */
-// the variable part of the CR TPDU can contain the Transport-Selectors, 
+// the variable part of the CR TPDU can contain the Transport-Selectors,
 // maximum TPDU size, and preferred maximum TPDU size.
 func cr(cv connVars) (tpdu []byte) {
 	DST_REF := cv.dstRef[:]      // must always be zero
@@ -113,7 +113,7 @@ func cr(cv connVars) (tpdu []byte) {
 	fixed := append([]byte{crId}, DST_REF...)
 	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, CLASS_OPTION...)
-	// construct the variable part of CR       
+	// construct the variable part of CR
 	variable := setVarPart(cv)
 	// assemble the whole tpdu
 	tpdu = append(fixed, variable...)
@@ -124,7 +124,7 @@ func cr(cv connVars) (tpdu []byte) {
 }
 
 // determine if a packet is a CR, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte  
+// in case of error tlen is the length of the input slice up to and including the faulty byte
 func isCR(incoming []byte) (found bool, tlen uint8) {
 	found, tlen = isType(incoming, crId, crMinLen)
 	if found {
@@ -138,7 +138,7 @@ func isCR(incoming []byte) (found bool, tlen uint8) {
 }
 
 /* CC - Connection Confirm */
-// the variable part of the CC TPDU can contain the Transport-Selectors, 
+// the variable part of the CC TPDU can contain the Transport-Selectors,
 // maximum TPDU size, and preferred maximum TPDU size.
 func cc(cv connVars) (tpdu []byte) {
 	DST_REF := cv.dstRef[:]
@@ -204,7 +204,7 @@ func setVarPart(cv connVars) (variable []byte) {
 	return
 }
 
-// decode the connection variables of a CR or CC packet, 
+// decode the connection variables of a CR or CC packet,
 // extracting the components
 func getConnVars(incoming []byte) (cv connVars) {
 	copy(cv.dstRef[:], incoming[2:4])
@@ -260,7 +260,7 @@ func getConnVars(incoming []byte) (cv connVars) {
 	return
 }
 
-// validate a CR TPDU, or return the bit pattern of the rejected TPDU header 
+// validate a CR TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
 func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
 	// validate fixed part - dstref must be zero
@@ -306,9 +306,9 @@ func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
 	return false, incoming
 }
 
-// validate a CC TPDU, or return the bit pattern of the rejected TPDU header 
+// validate a CC TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
-// NOTE: it is legal to ignore the prefTpduSize parameter, even if it was 
+// NOTE: it is legal to ignore the prefTpduSize parameter, even if it was
 // present in the CR. It is illegal to have both tpduSize and prefTpduSize
 // in a CC TPDU.
 func validateCc(incoming []byte, crCv connVars) (bool, []byte) {
@@ -359,8 +359,8 @@ func validateCc(incoming []byte, crCv connVars) (bool, []byte) {
 }
 
 // validate the fixed part of a CR or CC. If validation is ok, the variable
-// part of the TPDU is returned, if present. Otherwise, the bit pattern of 
-// the rejected TPDU header up to and including the octet which caused the 
+// part of the TPDU is returned, if present. Otherwise, the bit pattern of
+// the rejected TPDU header up to and including the octet which caused the
 // rejection is returned. If needVar is true, the TPDU is considered valid
 // only if it has a variable part.
 func validateFixed(incoming, dstRef []byte, needVar bool) (bool, []byte) {
@@ -488,7 +488,7 @@ func validCcOptions(vars []byte, crCv connVars) bool {
 	return true
 }
 
-// validate a DT TPDU, or return the bit pattern of the rejected TPDU header 
+// validate a DT TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
 func validateDt(incoming []byte, maxTpduSize uint64) (valid bool, erBuf []byte) {
 	if uint64(len(incoming)) > maxTpduSize {
@@ -500,14 +500,14 @@ func validateDt(incoming []byte, maxTpduSize uint64) (valid bool, erBuf []byte) 
 	return false, incoming[:dtMinLen]
 }
 
-// validate an ED TPDU, or return the bit pattern of the rejected TPDU header 
+// validate an ED TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
 func validateEd(incoming []byte) (valid bool, erBuf []byte) {
 	return validateDt(incoming, edMaxLen)
 }
 
 /* DR - Disconnect Request */
-// the variable part of the DR TPDU can contain a parameter allowing 
+// the variable part of the DR TPDU can contain a parameter allowing
 // additional information related to the clearing of the connection
 func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 	DST_REF := conn.dstRef[:]
@@ -575,7 +575,7 @@ func getMaxTpduSize(cv connVars) (size uint64) {
 
 /* ER - Error */
 // the variable part of the ER TPDU contains the bit pattern of the rejected TPDU
-// header up to and including the octet which caused the rejection. 
+// header up to and including the octet which caused the rejection.
 // This parameter is mandatory in class 0.
 func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 	DST_REF := dstRef
@@ -667,7 +667,7 @@ func tpkt(tpdu []byte) (tpkt []byte) {
 	return
 }
 
-// determine if a packet is a TPKT, and read its packet length 
+// determine if a packet is a TPKT, and read its packet length
 func isTPKT(incoming []byte) (found bool, tlen uint16) {
 	if len(incoming) < tpktHlen {
 		return false, 0

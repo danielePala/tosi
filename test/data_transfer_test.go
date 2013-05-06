@@ -1,4 +1,4 @@
-/* 
+/*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -109,6 +109,7 @@ func TestWriteMax2(t *testing.T) {
 	conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
 	checkErrorDT(err, t)
 	var buf [maxSduSize + 1]byte
+	buf[maxSduSize] = 0x4
 	_, err = conn.Write(buf[:])
 	checkErrorDT(err, t)
 	time.Sleep(time.Second)
@@ -235,7 +236,7 @@ func tosiServerReadMax2(t *testing.T) {
 		t.Log("Wrong data size")
 		t.FailNow()
 	}
-	if !bytes.Equal(buf[:1], []byte{0x00}) {
+	if !bytes.Equal(buf[:1], []byte{0x04}) {
 		t.Log("Wrong data values")
 		t.FailNow()
 	}

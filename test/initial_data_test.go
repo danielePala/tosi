@@ -1,4 +1,4 @@
-/* 
+/*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.

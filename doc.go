@@ -1,4 +1,4 @@
-/* 
+/*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -28,13 +28,13 @@ ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.asp
 and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
 
 The external interface is based on the constructs defined in
-the 'net' package, and in particular the basic interface provided 
-by the Dial, Listen, and Accept functions and the associated Conn 
+the 'net' package, and in particular the basic interface provided
+by the Dial, Listen, and Accept functions and the associated Conn
 and Listener interfaces. Please refer to that package's documentation
 for general informations on their usage and philosophy, it can be
 found here: http://golang.org/pkg/net/.
 
-The DialTOSI function connects to a server: 
+The DialTOSI function connects to a server:
 
  conn, err := tosi.DialTOSI("tosi", "192.168.1.1:100")
  if err != nil {

@@ -1,4 +1,4 @@
-/* 
+/*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -107,7 +107,7 @@ func TestWrite2bytesED2(t *testing.T) {
 }
 
 // Test 4
-// test expedited data write with more than maximum expedited SDU size (16). 
+// test expedited data write with more than maximum expedited SDU size (16).
 // No error should occur. The server has a read buffer of exactly 16 bytes.
 func TestWriteMaxED2(t *testing.T) {
 	// start a server

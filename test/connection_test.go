@@ -1,4 +1,4 @@
-/* 
+/*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
@@ -44,7 +44,7 @@ func TestConn(t *testing.T) {
 }
 
 // Test 2
-// test connection establishment and closing. 
+// test connection establishment and closing.
 // Don't specify any tsel. No error should occur.
 func TestConnNoTsel(t *testing.T) {
 	// start a server
@@ -77,7 +77,7 @@ func TestConnNoTselFail(t *testing.T) {
 }
 
 // Test 4
-// test connection establishment and closing. 
+// test connection establishment and closing.
 // Use the local address option. No error should occur.
 func TestConnLAddr(t *testing.T) {
 	// start a server
