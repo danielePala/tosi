@@ -38,7 +38,7 @@ func TestWrite5bytesIn(t *testing.T) {
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
-	opt := tosi.DialOptions{Data: data}
+	opt := tosi.DialOpt{Data: data}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorIn(err, t)
 	if conn.UseExpedited == true {
@@ -77,7 +77,7 @@ func TestWrite35bytesIn(t *testing.T) {
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := make([]byte, 35)
-	opt := tosi.DialOptions{Data: data}
+	opt := tosi.DialOpt{Data: data}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorIn(err, t)
 	if conn.UseExpedited == true {

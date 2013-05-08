@@ -57,6 +57,7 @@ const (
 	tpduSizeMax     = 11
 	optionsMin      = 0
 	optionsMax      = 1
+	expeditedOpt    = 1
 	classOptIdx     = 6
 	maxDataLen      = 32
 	// DR-related defs
@@ -124,7 +125,8 @@ func cr(cv connVars) (tpdu []byte) {
 }
 
 // determine if a packet is a CR, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isCR(incoming []byte) (found bool, tlen uint8) {
 	found, tlen = isType(incoming, crId, crMinLen)
 	if found {
@@ -156,7 +158,8 @@ func cc(cv connVars) (tpdu []byte) {
 }
 
 // determine if a packet is a CC, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isCC(incoming []byte) (found bool, tlen uint8) {
 	found, tlen = isType(incoming, ccId, ccMinLen)
 	if found {
@@ -229,26 +232,22 @@ func getConnVars(incoming []byte) (cv connVars) {
 		if len(incoming) < pLen {
 			return
 		}
-		buf := bytes.NewBuffer(incoming[:pLen])
 		switch id {
 		case locTselID:
-			cv.locTsel = make([]byte, pLen)
-			binary.Read(buf, binary.BigEndian, &cv.locTsel)
+			cv.locTsel = incoming[:pLen]
 		case remTselID:
-			cv.remTsel = make([]byte, pLen)
-			binary.Read(buf, binary.BigEndian, &cv.remTsel)
+			cv.remTsel = incoming[:pLen]
 		case tpduSizeID:
 			if pLen == tpduSizeLen {
-				binary.Read(buf, binary.BigEndian, &cv.tpduSize)
+				cv.tpduSize = incoming[0]
 			}
 		case prefTpduSizeID:
 			if pLen <= prefTpduSizeLen {
-				cv.prefTpduSize = make([]byte, pLen)
-				binary.Read(buf, binary.BigEndian, &cv.prefTpduSize)
+				cv.prefTpduSize = incoming[:pLen]
 			}
 		case optionsID:
 			if pLen == optionsLen {
-				binary.Read(buf, binary.BigEndian, &cv.options)
+				cv.options = incoming[0]
 			}
 		}
 		if len(incoming) > pLen {
@@ -406,7 +405,7 @@ func validCrPrefTpduSize(vars []byte) bool {
 	if optLen > prefTpduSizeLen {
 		return false // invalid length
 	}
-	cv := connVars{prefTpduSize: vars[2:optLen]}
+	cv := connVars{prefTpduSize: vars[2 : optLen+2]}
 	size := getMaxTpduSize(cv)
 	if size > defTpduSize {
 		return false // invalid size
@@ -455,7 +454,7 @@ func validCcPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
 	if optLen > prefTpduSizeLen {
 		return false // invalid length
 	}
-	ccCv := connVars{prefTpduSize: vars[2:optLen]}
+	ccCv := connVars{prefTpduSize: vars[2 : optLen+2]}
 	ccSize := getMaxTpduSize(ccCv)
 	crSize := getMaxTpduSize(crCv)
 	if ccSize > crSize {
@@ -533,7 +532,8 @@ func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 }
 
 // determine if a packet is a DR, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isDR(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, drId, drMinLen)
 }
@@ -593,7 +593,8 @@ func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 }
 
 // determine if a packet is an ER, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isER(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, erId, erMinLen)
 }
@@ -623,7 +624,8 @@ func dt(userData []byte, endOfTsdu byte) (tpdu []byte) {
 }
 
 // determine if a packet is a DT, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isDT(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, dtId, dtMinLen)
 }
@@ -639,13 +641,15 @@ func ed(userData []byte, endOfTsdu byte) (tpdu []byte) {
 }
 
 // determine if a packet is an ED, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to 
+// and including the faulty byte
 func isED(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, edId, edMinLen)
 }
 
 // determine if a packet is of a certain type, and read its Length Indicator
-// in case of error tlen is the length of the input slice up to and including the faulty byte
+// in case of error tlen is the length of the input slice up to and including 
+// the faulty byte
 func isType(incoming []byte, id byte, minLen int) (bool, uint8) {
 	if len(incoming) < minLen {
 		return false, uint8(len(incoming))
@@ -676,7 +680,7 @@ func isTPKT(incoming []byte) (found bool, tlen uint16) {
 		found = true
 		buf := bytes.NewBuffer(incoming[2:4])
 		err := binary.Read(buf, binary.BigEndian, &tlen)
-		if err == nil {
+		if err == nil && tlen > 0 {
 			return
 		}
 	}

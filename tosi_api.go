@@ -37,13 +37,12 @@ const (
 // TOSIConn is an implementation of the net.Conn interface
 // for TOSI network connections.
 type TOSIConn struct {
-	tcpConn                     net.TCPConn // TCP connection
-	laddr, raddr                TOSIAddr    // local and remote address
-	maxTpduSize                 uint64      // max TPDU size
-	srcRef, dstRef              [2]byte     // connection identifiers
-	userData                                // read buffer
-	readDeadline, writeDeadline time.Time   // read and write deadlines
-	UseExpedited                bool        // use of expedited TPDUs enabled
+	tcpConn        net.TCPConn // TCP connection
+	laddr, raddr   TOSIAddr    // local and remote address
+	maxTpduSize    uint64      // max TPDU size
+	srcRef, dstRef [2]byte     // connection identifiers
+	userData                   // read buffer
+	UseExpedited   bool        // use of expedited TPDUs enabled
 }
 
 // structure holding data from TCP which hasn't been returned to the user yet
@@ -52,19 +51,19 @@ type userData struct {
 	expedited bool   // is this data from an expedited TPDU?
 }
 
-// DialOptions contains options to be used by the DialOptTOSI function during
+// DialOpt contains options to be used by the DialOptTOSI function during
 // connection establishment: use of expedited data transfer and initial user
 // data (up to 32 bytes).
-type DialOptions struct {
+type DialOpt struct {
 	Expedited bool
 	Data      []byte
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must
 // be "tosi", "tosi4", or "tosi6".
-// If laddr is not nil, it is used as the local address for the connection.
-func DialTOSI(tnet string, laddr, raddr *TOSIAddr) (*TOSIConn, error) {
-	return DialOptTOSI(tnet, laddr, raddr, DialOptions{})
+// If loc is not nil, it is used as the local address for the connection.
+func DialTOSI(net string, loc, rem *TOSIAddr) (*TOSIConn, error) {
+	return DialOptTOSI(net, loc, rem, DialOpt{})
 }
 
 // DialOptTOSI is the same as DialTOSI, but it takes an additional 'options'
@@ -73,25 +72,25 @@ func DialTOSI(tnet string, laddr, raddr *TOSIAddr) (*TOSIConn, error) {
 // The result of the expedited data negotiation is returned in a TOSIConn field.
 // The maximum size of initial data is 32 bytes, if the input is bigger than
 // this size, it is trimmed.
-func DialOptTOSI(tnet string, laddr, raddr *TOSIAddr, opt DialOptions) (*TOSIConn, error) {
-	if raddr == nil {
+func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) {
+	if rem == nil {
 		return nil, errors.New("invalid remote address")
 	}
 	// setup ISO connection vars
 	var cv connVars
 	cv.srcRef = [2]byte{0x01, 0x01} // random non-zero value
-	if laddr != nil {
-		cv.locTsel = laddr.Tsel
+	if loc != nil {
+		cv.locTsel = loc.Tsel
 	}
-	cv.remTsel = raddr.Tsel
-	if opt.Expedited {
-		cv.options = 0x01
+	cv.remTsel = rem.Tsel
+	if op.Expedited {
+		cv.options = expeditedOpt
 	}
-	cv.userData = opt.Data
+	cv.userData = op.Data
 	if len(cv.userData) > maxDataLen {
 		cv.userData = cv.userData[:maxDataLen]
 	}
-	return dial(tnet, laddr, raddr, cv)
+	return dial(net, loc, rem, cv)
 }
 
 // dial connects to the remote address raddr on the network net, which must
@@ -138,6 +137,9 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		err = handleDialError(tpdu, cv.srcRef[:], tcp)
 	}
 	tcp.Close()
+	if err == nil {
+		err = errors.New("received an invalid TPKT")
+	}
 	return nil, err
 }
 
@@ -294,6 +296,9 @@ func (c *TOSIConn) ReadTOSI(b []byte) (n int, err error, expedited bool) {
 		}
 		err = c.handleDataError(tpdu, errIdx)
 	}
+	if err == nil {
+		err = errors.New("received an invalid TPKT")
+	}
 	return 0, err, false
 }
 
@@ -303,10 +308,7 @@ func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error) {
 	if !valid {
 		// we got an invalid ED
 		// reply with an ER
-		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
-		c.tcpConn.SetWriteDeadline(c.readDeadline)
-		writePacket(&c.tcpConn, reply)
-		c.tcpConn.SetWriteDeadline(c.writeDeadline)
+		go writeEr(c, erBuf)
 		return 0, errors.New("received an invalid ED")
 	}
 	c.expedited = true
@@ -319,10 +321,7 @@ func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error) {
 	if !valid {
 		// we got an invalid DT
 		// reply with an ER
-		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
-		c.tcpConn.SetWriteDeadline(c.readDeadline)
-		writePacket(&c.tcpConn, reply)
-		c.tcpConn.SetWriteDeadline(c.writeDeadline)
+		go writeEr(c, erBuf)
 		return 0, errors.New("received an invalid DT")
 	}
 	c.expedited = false
@@ -361,13 +360,15 @@ func (c *TOSIConn) handleDataError(tpdu []byte, errIdx uint8) (err error) {
 	if (isDR) || (isER) {
 		c.Close()
 	} else {
-		reply := tpkt(er(c.dstRef[:], erParamVal, tpdu[:errIdx]))
-		c.tcpConn.SetWriteDeadline(c.readDeadline)
-		writePacket(&c.tcpConn, reply)
-		c.tcpConn.SetWriteDeadline(c.writeDeadline)
+		go writeEr(c, tpdu[:errIdx])
 		err = errors.New("received an invalid TPDU")
 	}
 	return
+}
+
+func writeEr(c *TOSIConn, tpdu []byte) {
+	reply := tpkt(er(c.dstRef[:], erParamVal, tpdu))
+	writePacket(&c.tcpConn, reply)
 }
 
 // RemoteAddr returns the remote network address.
@@ -377,20 +378,16 @@ func (c *TOSIConn) RemoteAddr() net.Addr {
 
 // SetDeadline implements the net.Conn SetDeadline method.
 func (c *TOSIConn) SetDeadline(t time.Time) error {
-	c.readDeadline = t
-	c.writeDeadline = t
 	return c.tcpConn.SetDeadline(t)
 }
 
 // SetReadDeadline implements the net.Conn SetReadDeadline method.
 func (c *TOSIConn) SetReadDeadline(t time.Time) error {
-	c.readDeadline = t
 	return c.tcpConn.SetReadDeadline(t)
 }
 
 // SetWriteDeadline implements the Conn SetWriteDeadline method.
 func (c *TOSIConn) SetWriteDeadline(t time.Time) error {
-	c.writeDeadline = t
 	return c.tcpConn.SetWriteDeadline(t)
 }
 
@@ -404,15 +401,21 @@ func (c *TOSIConn) Write(b []byte) (n int, err error) {
 // establishment, the expedited parameter is ignored.
 func (c *TOSIConn) WriteTOSI(b []byte, expedited bool) (n int, err error) {
 	if (expedited == false) || (c.UseExpedited == false) {
-		return c.writeTpdu(b, dt, c.maxTpduSize-dtMinLen)
+		return c.writeTpdu(b, c.maxTpduSize-dtMinLen)
 	}
-	return c.writeTpdu(b, ed, edMaxLen-edMinLen)
+	return c.writeTpdu(b, edMaxLen-edMinLen)
 }
 
-// write data using the TPDU type implemented by the tpdu argument.
-func (c *TOSIConn) writeTpdu(b []byte, tpdu func([]byte, byte) []byte, maxSduSize uint64) (n int, e error) {
+// write data using DT or ED TPDUs, depending on the maxSduSize argument.
+func (c *TOSIConn) writeTpdu(b []byte, maxSduSize uint64) (n int, e error) {
 	if b == nil {
 		return 0, errors.New("invalid input")
+	}
+	var tpdu func([]byte, byte) []byte
+	if maxSduSize == (c.maxTpduSize - dtMinLen) {
+		tpdu = dt
+	} else if maxSduSize == (edMaxLen - edMinLen) {
+		tpdu = ed
 	}
 	bufLen := uint64(len(b))
 	// if b is too big, split it into smaller chunks
@@ -465,7 +468,7 @@ func (a *TOSIAddr) String() string {
 }
 
 // ResolveTOSIAddr parses addr as a TOSI address of the form host:tsel and
-// resolves domain names to numeric addresses on the network net,
+// resolves domain names to numeric addresses on the network tnet,
 // which must be "tosi", "tosi4" or "tosi6".
 // A literal IPv6 host address must be enclosed in square brackets,
 // as in "[::]:80". tsel is the "trasport selector", which can be an arbitrary
@@ -534,7 +537,12 @@ func (l *TOSIListener) accept(data func([]byte) []byte) (net.Conn, error) {
 		_, err = readPacket(tcp, buf)
 		isCR, tlen := isCR(buf)
 		if isCR && err == nil {
-			return l.handleCr(buf, tcp, data)
+			var userData []byte
+			cv := getConnVars(buf)
+			if data != nil {
+				userData = data(cv.userData)
+			}
+			return crReply(l, buf, userData, tcp)
 		}
 		if err == nil {
 			// reply with an ER
@@ -544,19 +552,22 @@ func (l *TOSIListener) accept(data func([]byte) []byte) (net.Conn, error) {
 		}
 	}
 	tcp.Close()
+	if err == nil {
+		err = errors.New("received an invalid TPKT")
+	}
 	return nil, err
 }
 
 // parse a CR, handling errors and sending a CC in response.
-func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn, data func([]byte) []byte) (net.Conn, error) {
+func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) {
 	var reply []byte
 	var repCv connVars
-	valid, erBuf := validateCr(tpdu, l.addr.Tsel)
+	valid, erBuf := validateCr(tpdu, l.(*TOSIListener).addr.Tsel)
 	cv := getConnVars(tpdu)
 	if valid {
 		// reply with a CC
 		repCv.locTsel = cv.locTsel
-		repCv.remTsel = l.addr.Tsel
+		repCv.remTsel = l.(*TOSIListener).addr.Tsel
 		if cv.prefTpduSize == nil {
 			repCv.tpduSize = cv.tpduSize
 		}
@@ -564,9 +575,7 @@ func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn, data func([]byte)
 		repCv.srcRef = [2]byte{0x02, 0x02} // random non-zero value
 		repCv.dstRef = cv.srcRef
 		repCv.options = cv.options
-		if data != nil {
-			repCv.userData = data(cv.userData)
-		}
+		repCv.userData = data
 		if len(repCv.userData) > maxDataLen {
 			repCv.userData = repCv.userData[:maxDataLen]
 		}
@@ -575,7 +584,7 @@ func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn, data func([]byte)
 		// reply with an ER
 		reply = tpkt(er(cv.srcRef[:], erParamVal, erBuf))
 	}
-	_, err := writePacket(tcp, reply)
+	_, err := writePacket(tcp.(*net.TCPConn), reply)
 	if valid && (err == nil) {
 		// connection established
 		// NOTE: in reply to our CC, we may also receive
@@ -585,8 +594,8 @@ func (l *TOSIListener) handleCr(tpdu []byte, tcp *net.TCPConn, data func([]byte)
 		tcpAddr = tcp.RemoteAddr().(*net.TCPAddr)
 		raddr := TOSIAddr{tcpAddr.IP, cv.locTsel}
 		return &TOSIConn{
-			tcpConn:      *tcp,
-			laddr:        *l.addr,
+			tcpConn:      *tcp.(*net.TCPConn),
+			laddr:        *l.(*TOSIListener).addr,
 			raddr:        raddr,
 			maxTpduSize:  getMaxTpduSize(cv),
 			srcRef:       repCv.srcRef,
@@ -612,13 +621,13 @@ func (l *TOSIListener) Addr() net.Addr {
 	return l.addr
 }
 
-// ListenTOSI announces on the TOSI address laddr and returns a TOSI listener.
+// ListenTOSI announces on the TOSI address loc and returns a TOSI listener.
 // tnet must be "tosi", "tosi4", or "tosi6".
-func ListenTOSI(tnet string, laddr *TOSIAddr) (*TOSIListener, error) {
-	if laddr == nil {
+func ListenTOSI(tnet string, loc *TOSIAddr) (*TOSIListener, error) {
+	if loc == nil {
 		return nil, errors.New("invalid local address")
 	}
-	tcpAddr := tosiToTCPaddr(*laddr)
+	tcpAddr := tosiToTCPaddr(*loc)
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
 		// this check is needed by Go versions < 1.1
@@ -628,5 +637,5 @@ func ListenTOSI(tnet string, laddr *TOSIAddr) (*TOSIListener, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TOSIListener{laddr, *listener}, nil
+	return &TOSIListener{addr: loc, tcpListener: *listener}, nil
 }

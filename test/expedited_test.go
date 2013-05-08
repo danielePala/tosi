@@ -38,7 +38,7 @@ func TestWrite2bytesED(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	opt := tosi.DialOptions{Expedited: true}
+	opt := tosi.DialOpt{Expedited: true}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
 	if conn.UseExpedited == false {
@@ -64,7 +64,7 @@ func TestWriteMaxED(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	opt := tosi.DialOptions{Expedited: true}
+	opt := tosi.DialOpt{Expedited: true}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
 	if conn.UseExpedited == false {
@@ -91,7 +91,7 @@ func TestWrite2bytesED2(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	opt := tosi.DialOptions{Expedited: true}
+	opt := tosi.DialOpt{Expedited: true}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
 	if conn.UseExpedited == false {
@@ -117,7 +117,7 @@ func TestWriteMaxED2(t *testing.T) {
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
 	checkErrorED(err, t)
 	// try to connect
-	opt := tosi.DialOptions{Expedited: true}
+	opt := tosi.DialOpt{Expedited: true}
 	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorED(err, t)
 	if conn.UseExpedited == false {
