@@ -28,7 +28,9 @@ import (
 )
 
 const (
-	maxSduSize = 65528
+	maxSduSize     = 65528
+	customTpduSize = 512
+	customSduSize  = 509
 )
 
 // Test 1
@@ -110,6 +112,30 @@ func TestWriteMax2(t *testing.T) {
 	checkErrorDT(err, t)
 	var buf [maxSduSize + 1]byte
 	buf[maxSduSize] = 0x4
+	_, err = conn.Write(buf[:])
+	checkErrorDT(err, t)
+	time.Sleep(time.Second)
+	// close connection
+	err = conn.Close()
+	checkErrorDT(err, t)
+}
+
+// Test 5
+// test data write with custom SDU size (512 bytes). No error should occur.
+// the server has a read buffer of exactly maxSduSize bytes.
+func TestWriteCustom(t *testing.T) {
+	// start a server
+	go tosiServerReadCustom(t)
+	// wait for server to come up
+	time.Sleep(time.Second)
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
+	checkErrorDT(err, t)
+	// try to connect
+	opt := tosi.DialOpt{MaxTPDUSize: customTpduSize}
+	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
+	checkErrorDT(err, t)
+	var buf [customSduSize + 1]byte
+	buf[customSduSize] = 0x33
 	_, err = conn.Write(buf[:])
 	checkErrorDT(err, t)
 	time.Sleep(time.Second)
@@ -237,6 +263,44 @@ func tosiServerReadMax2(t *testing.T) {
 		t.FailNow()
 	}
 	if !bytes.Equal(buf[:1], []byte{0x04}) {
+		t.Log("Wrong data values")
+		t.FailNow()
+	}
+	// close connection
+	err = conn.Close()
+	checkErrorDT(err, t)
+	err = listener.Close()
+	checkErrorDT(err, t)
+}
+
+// a tosi server reading customSduSize+1 bytes. No fault is expected.
+func tosiServerReadCustom(t *testing.T) {
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
+	checkErrorDT(err, t)
+	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	checkErrorDT(err, t)
+	// listen for connections
+	conn, err := listener.Accept()
+	checkErrorDT(err, t)
+	buf := make([]byte, customSduSize)
+	n, err := conn.Read(buf)
+	checkErrorDT(err, t)
+	if n != customSduSize {
+		t.Log("Wrong data size")
+		t.FailNow()
+	}
+	if !bytes.Equal(buf, make([]byte, customSduSize)) {
+		t.Log("Wrong data values")
+		t.FailNow()
+	}
+	buf = make([]byte, 10)
+	n, err = conn.Read(buf)
+	checkErrorDT(err, t)
+	if n != 1 {
+		t.Log("Wrong data size")
+		t.FailNow()
+	}
+	if !bytes.Equal(buf[:1], []byte{0x33}) {
 		t.Log("Wrong data values")
 		t.FailNow()
 	}

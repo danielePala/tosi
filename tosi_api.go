@@ -30,16 +30,14 @@ import (
 	"time"
 )
 
-const (
-	rfc1006port = 102 // TCP port used by TOSI servers
-)
+var rfc1006port = 102 // TCP port used by TOSI servers
 
 // TOSIConn is an implementation of the net.Conn interface
 // for TOSI network connections.
 type TOSIConn struct {
 	tcpConn        net.TCPConn // TCP connection
 	laddr, raddr   TOSIAddr    // local and remote address
-	maxTpduSize    uint64      // max TPDU size
+	MaxTpduSize    int         // max TPDU size
 	srcRef, dstRef [2]byte     // connection identifiers
 	userData                   // read buffer
 	UseExpedited   bool        // use of expedited TPDUs enabled
@@ -52,11 +50,13 @@ type userData struct {
 }
 
 // DialOpt contains options to be used by the DialOptTOSI function during
-// connection establishment: use of expedited data transfer and initial user
-// data (up to 32 bytes).
+// connection establishment: use of expedited data transfer, maximum TPDU
+// size and initial user data (up to 32 bytes). The maximum TPDU size should
+// be a multiple of 128, and be smaller than 65531 bytes. 
 type DialOpt struct {
-	Expedited bool
-	Data      []byte
+	Expedited   bool
+	Data        []byte
+	MaxTPDUSize int
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must
@@ -89,6 +89,17 @@ func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) 
 	cv.userData = op.Data
 	if len(cv.userData) > maxDataLen {
 		cv.userData = cv.userData[:maxDataLen]
+	}
+	if op.MaxTPDUSize > 0 && op.MaxTPDUSize < defTpduSize {
+		tpduSizes := map[int]byte{128: 7, 256: 8, 512: 9,
+			1024: 10, 2048: 11}
+		switch op.MaxTPDUSize {
+		case 128, 256, 512, 1024, 2048:
+			cv.tpduSize = tpduSizes[op.MaxTPDUSize]
+		default:
+			cv.tpduSize = tpduSizes[2048]
+			cv.prefTpduSize = []byte{byte(op.MaxTPDUSize / 128)}
+		}
 	}
 	return dial(net, loc, rem, cv)
 }
@@ -159,7 +170,7 @@ func handleCc(tpdu []byte, tcp *net.TCPConn, cv connVars) (*TOSIConn, error) {
 	repCv := getConnVars(tpdu)
 	return &TOSIConn{
 		tcpConn:      *tcp,
-		maxTpduSize:  getMaxTpduSize(repCv),
+		MaxTpduSize:  int(getMaxTpduSize(repCv)),
 		srcRef:       cv.srcRef,
 		dstRef:       repCv.srcRef,
 		userData:     userData{readBuf: repCv.userData},
@@ -317,7 +328,7 @@ func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error) {
 
 // parse a DT, handling errors and buffering issues
 func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error) {
-	valid, erBuf := validateDt(tpdu, c.maxTpduSize)
+	valid, erBuf := validateDt(tpdu, c.MaxTpduSize)
 	if !valid {
 		// we got an invalid DT
 		// reply with an ER
@@ -401,32 +412,31 @@ func (c *TOSIConn) Write(b []byte) (n int, err error) {
 // establishment, the expedited parameter is ignored.
 func (c *TOSIConn) WriteTOSI(b []byte, expedited bool) (n int, err error) {
 	if (expedited == false) || (c.UseExpedited == false) {
-		return c.writeTpdu(b, c.maxTpduSize-dtMinLen)
+		return c.writeTpdu(b, c.MaxTpduSize-dtMinLen)
 	}
 	return c.writeTpdu(b, edMaxLen-edMinLen)
 }
 
 // write data using DT or ED TPDUs, depending on the maxSduSize argument.
-func (c *TOSIConn) writeTpdu(b []byte, maxSduSize uint64) (n int, e error) {
+func (c *TOSIConn) writeTpdu(b []byte, maxSduSize int) (n int, e error) {
 	if b == nil {
 		return 0, errors.New("invalid input")
 	}
 	var tpdu func([]byte, byte) []byte
-	if maxSduSize == (c.maxTpduSize - dtMinLen) {
+	if maxSduSize == (c.MaxTpduSize - dtMinLen) {
 		tpdu = dt
 	} else if maxSduSize == (edMaxLen - edMinLen) {
 		tpdu = ed
 	}
-	bufLen := uint64(len(b))
+	bufLen := len(b)
 	// if b is too big, split it into smaller chunks
 	if bufLen > maxSduSize {
 		numWrites := (bufLen / maxSduSize)
 		if (bufLen % maxSduSize) > 0 {
 			numWrites += 1
 		}
-		var i uint64
 		var endOfTsdu byte
-		for i = 0; i < numWrites; i++ {
+		for i := 0; i < numWrites; i++ {
 			start := maxSduSize * i
 			end := maxSduSize * (i + 1)
 			if end > bufLen {
@@ -597,7 +607,7 @@ func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) 
 			tcpConn:      *tcp.(*net.TCPConn),
 			laddr:        *l.(*TOSIListener).addr,
 			raddr:        raddr,
-			maxTpduSize:  getMaxTpduSize(cv),
+			MaxTpduSize:  int(getMaxTpduSize(cv)),
 			srcRef:       repCv.srcRef,
 			dstRef:       cv.srcRef,
 			userData:     userData{readBuf: cv.userData},

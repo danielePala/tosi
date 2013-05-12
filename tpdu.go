@@ -489,8 +489,8 @@ func validCcOptions(vars []byte, crCv connVars) bool {
 
 // validate a DT TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
-func validateDt(incoming []byte, maxTpduSize uint64) (valid bool, erBuf []byte) {
-	if uint64(len(incoming)) > maxTpduSize {
+func validateDt(incoming []byte, maxTpduSize int) (valid bool, erBuf []byte) {
+	if len(incoming) > maxTpduSize {
 		return false, incoming[:maxTpduSize+1]
 	}
 	if (incoming[eotIdx] == nrNonEot) || (incoming[eotIdx] == nrEot) {
@@ -517,8 +517,8 @@ func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 	var variable []byte
 	// construct the info option
 	if info != nil {
-		maxSize := conn.maxTpduSize - drMinLen
-		if maxSize < uint64(len(info)) {
+		maxSize := conn.MaxTpduSize - drMinLen
+		if maxSize < len(info) {
 			info = info[:maxSize]
 		}
 		variable = []byte{infoID, byte(len(info))}
