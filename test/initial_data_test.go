@@ -34,7 +34,7 @@ func TestWrite5bytesIn(t *testing.T) {
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
@@ -73,7 +73,7 @@ func TestWrite35bytesIn(t *testing.T) {
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := make([]byte, 35)
@@ -106,7 +106,7 @@ func TestWrite35bytesIn(t *testing.T) {
 
 // a tosi server reading 5 bytes of initial data. No fault is expected.
 func tosiServerRead5bytesIn(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
 	checkErrorIn(err, t)
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorIn(err, t)

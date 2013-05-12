@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-var rfc1006port = 102 // TCP port used by TOSI servers
+const rfc1006port = 102 // Default TCP port used by TOSI servers
 
 // TOSIConn is an implementation of the net.Conn interface
 // for TOSI network connections.
@@ -114,7 +114,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		// this check is needed by Go versions < 1.1
 		return nil, errors.New("unknown network")
 	}
-	TCPraddr := tosiToTCPaddr(*raddr)
+	TCPraddr := raddr.TCPAddr
 	// try to establish a TCP connection
 	tcp, err := net.DialTCP(TCPnet, nil, &TCPraddr)
 	if err != nil {
@@ -140,7 +140,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 			c, err := handleCc(tpdu, tcp, cv)
 			if laddr == nil {
 				var tcpAddr = tcp.LocalAddr().(*net.TCPAddr)
-				c.laddr = TOSIAddr{IP: tcpAddr.IP, Tsel: nil}
+				c.laddr.TCPAddr = *tcpAddr
 			}
 			c.raddr = *raddr
 			return c, err
@@ -210,12 +210,6 @@ func tosiToTCPnet(tosi string) (tcp string) {
 	default:
 		tcp = ""
 	}
-	return
-}
-
-// convert a tosi addr to a TCP addr
-func tosiToTCPaddr(tosi TOSIAddr) (tcp net.TCPAddr) {
-	tcp = net.TCPAddr{IP: tosi.IP, Port: rfc1006port}
 	return
 }
 
@@ -461,8 +455,8 @@ func (c *TOSIConn) writeTpdu(b []byte, maxSduSize int) (n int, e error) {
 
 // TOSIAddr represents the address of a TOSI end point.
 type TOSIAddr struct {
-	IP   net.IP // IP address
-	Tsel []byte // Transport selector (optional)
+	net.TCPAddr        // TCP address
+	Tsel        []byte // Transport selector (optional)
 }
 
 // Network returns the address's network name, "tosi".
@@ -477,24 +471,23 @@ func (a *TOSIAddr) String() string {
 	return a.IP.String()
 }
 
-// ResolveTOSIAddr parses addr as a TOSI address of the form host:tsel and
+// ResolveTOSIAddr parses addr as a TOSI address of the form tcp:tsel and
 // resolves domain names to numeric addresses on the network tnet,
 // which must be "tosi", "tosi4" or "tosi6".
+// The tcp part must be a valid TCP address of the form host:port, enclosed
+// in square brackets, as in [127.0.0.1:80].
 // A literal IPv6 host address must be enclosed in square brackets,
 // as in "[::]:80". tsel is the "trasport selector", which can be an arbitrary
-// sequence of bytes. Thus '10.20.30.40:hello' is a valid address.
+// sequence of bytes. Thus '[10.20.30.40:80]:hello' is a valid address.
+// If no TCP port is specified, it defaults to 102.
 func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
-	host, tsel, err := net.SplitHostPort(addr)
-	if err != nil {
-		// maybe no port was given, try to parse a plain IP address
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			return
-		}
-		host = ip.String()
-		tsel = ""
+	tcp, tsel, err := net.SplitHostPort(addr)
+	service := tcp
+	// if no TCP port was specified, use default (102)
+	_, port, err := net.SplitHostPort(tcp)
+	if port == "" {
+		service += strconv.Itoa(rfc1006port)
 	}
-	service := host + ":" + strconv.Itoa(rfc1006port)
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
 		return nil, errors.New("invalid network")
@@ -503,10 +496,11 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	if err != nil {
 		return
 	}
+	tosiAddr = &TOSIAddr{TCPAddr: *tcpAddr}
 	if tsel != "" {
-		return &TOSIAddr{tcpAddr.IP, []byte(tsel)}, nil
+		tosiAddr.Tsel = []byte(tsel)
 	}
-	return &TOSIAddr{tcpAddr.IP, nil}, nil
+	return tosiAddr, nil
 }
 
 // TOSIListener is a TOSI network listener. Clients should typically use
@@ -602,7 +596,9 @@ func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) 
 		// it to the Read function.
 		var tcpAddr *net.TCPAddr
 		tcpAddr = tcp.RemoteAddr().(*net.TCPAddr)
-		raddr := TOSIAddr{tcpAddr.IP, cv.locTsel}
+		raddr := TOSIAddr{
+			TCPAddr: *tcpAddr,
+			Tsel:    cv.locTsel}
 		return &TOSIConn{
 			tcpConn:      *tcp.(*net.TCPConn),
 			laddr:        *l.(*TOSIListener).addr,
@@ -637,7 +633,7 @@ func ListenTOSI(tnet string, loc *TOSIAddr) (*TOSIListener, error) {
 	if loc == nil {
 		return nil, errors.New("invalid local address")
 	}
-	tcpAddr := tosiToTCPaddr(*loc)
+	tcpAddr := loc.TCPAddr
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
 		// this check is needed by Go versions < 1.1
