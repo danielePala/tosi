@@ -22,8 +22,9 @@
 Package tosi provides an implementation of RFC 1006.
 
 The protocol is defined at http://tools.ietf.org/html/rfc1006.
-The implementation puts ISO/IEC 8072/8073 transport class 0
-on top of a TCP/IP connection (on port 102).
+The implementation puts ISO/IEC 8072/8073 transport class 0 
+(with some minor modifications) on top of a TCP/IP connection, on port 102 
+by default, even if the port can be freely chosen.
 ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
 and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
 
@@ -36,7 +37,11 @@ found here: http://golang.org/pkg/net/.
 
 The DialTOSI function connects to a server:
 
- conn, err := tosi.DialTOSI("tosi", "192.168.1.1:100")
+ tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[192.168.1.1:80]:100")
+ if err != nil {
+         // handle error
+ }                                                                                                    
+ conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
  if err != nil {
          // handle error
  }
@@ -44,13 +49,17 @@ The DialTOSI function connects to a server:
  status, err := bufio.NewReader(conn).ReadString('\n')
  // ...
 
-A tosi address is composed by an IP address and an optional
+A tosi address is composed by a TCP address and an optional
 "transport selector (TSEL)" which can be an arbitrary sequence
-of bytes. Thus '10.20.30.40:hello' is a valid address.
+of bytes. Thus '[10.20.30.40:80]:hello' is a valid address.
 
 The ListenTOSI function creates servers:
 
- ln, err := tosi.ListenTOSI("tosi", ":8080")
+ tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[192.168.1.1:80]:100")
+ if err != nil {
+         // handle error
+ }
+ ln, err := tosi.ListenTOSI("tosi", tosiAddr)
  if err != nil {
          // handle error
  }
