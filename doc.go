@@ -24,9 +24,11 @@ Package tosi provides an implementation of RFC 1006.
 The protocol is defined at http://tools.ietf.org/html/rfc1006.
 The implementation puts ISO/IEC 8072/8073 transport class 0 
 (with some minor modifications) on top of a TCP/IP connection, on port 102 
-by default, even if the port can be freely chosen.
-ISO/IEC 8072/8073 is defined at http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
-and http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
+by default, even if another port can be chosen.
+ISO/IEC 8072/8073 is defined at 
+http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
+and 
+http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
 
 The external interface is based on the constructs defined in
 the 'net' package, and in particular the basic interface provided

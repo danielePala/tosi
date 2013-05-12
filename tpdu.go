@@ -1,6 +1,6 @@
 /*
- Definition of the TPDUs used by ISO 8073 transport Class 0 and
- associated validation functions.
+ Definition of the TPDUs used by ISO 8073 transport Class 0 (with
+ modifications defined in RFC 1006) and associated validation functions.
 
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
@@ -31,66 +31,64 @@ import (
 
 const (
 	// TPKT-related defs
-	tpktHlen     = 4 // len of a TPKT header
-	tpktVrsn     = 0x03
-	tpktReserved = 0x00
+	tpktHlen     = 4    // length of a TPKT header
+	tpktVrsn     = 0x03 // TPKT version field 
+	tpktReserved = 0x00 // TPKT reserved field
 	// default and min TPDU size
 	defTpduSize = 65531
 	minTpduSize = 128
 	// CR-related defs
-	crMinLen = 7
-	crId     = 0xe0
+	crId = 0xe0 // ID of a CR TPDU
 	// CC-related defs
-	ccMinLen = 7
-	ccId     = 0xd0
+	ccId = 0xd0 // ID of a CR TPDU
 	// CR and CC common defs
-	connMinLen      = 7
-	tpduSizeID      = 0xc0
-	locTselID       = 0xc1
-	remTselID       = 0xc2
-	prefTpduSizeID  = 0xf0
-	optionsID       = 0xc6
-	tpduSizeLen     = 0x01
-	prefTpduSizeLen = 0x04
-	optionsLen      = 0x01
-	tpduSizeMin     = 7
-	tpduSizeMax     = 11
-	optionsMin      = 0
-	optionsMax      = 1
-	expeditedOpt    = 1
-	classOptIdx     = 6
-	maxDataLen      = 32
+	connMinLen      = 7    // min length of a CR or CC TPDU
+	tpduSizeID      = 0xc0 // ID of the TPDU size field
+	locTselID       = 0xc1 // ID of the local TSEL field
+	remTselID       = 0xc2 // ID of the remote TSEL field
+	prefTpduSizeID  = 0xf0 // ID of the preferred TPDU size field
+	optionsID       = 0xc6 // ID of the options field
+	tpduSizeLen     = 0x01 // length of the TPDU size field
+	prefTpduSizeLen = 0x04 // max length of the preferred TPDU size field
+	optionsLen      = 0x01 // length of the options field
+	tpduSizeMin     = 7    // min value of the TPDU size field
+	tpduSizeMax     = 11   // max value of the TPDU size field
+	optionsMin      = 0    // min value of the options field
+	optionsMax      = 1    // max value of the options field
+	expeditedOpt    = 1    // expedited data option
+	classOptIdx     = 6    // index of the class option field
+	maxDataLen      = 32   // max length of initial data
 	// DR-related defs
-	drMinLen    = 7
-	drId        = 0x80
-	drUnspec    = 0x00
-	drCong      = 0x01
-	drSna       = 0x02
-	drUnknown   = 0x03
-	infoID      = 0xe0
-	drReasonIdx = 6
-	drInfoIdx   = 9
+	drMinLen    = 7    // min length of a DR TPDU
+	drId        = 0x80 // ID of a DR TPDU
+	drUnspec    = 0x00 // reason "Reason not specified"
+	drCong      = 0x01 // reason "Congestion at TSAP"
+	drSna       = 0x02 // reason "Session entity not attached to TSAP"
+	drUnknown   = 0x03 // reason "Address unknown"
+	infoID      = 0xe0 // ID of the info field
+	drReasonIdx = 6    // index of the reason field
+	drInfoIdx   = 9    // index of the info field
 	// ER-related defs
-	erMinLen    = 5
-	erId        = 0x70
-	invalidID   = 0xc1
-	erUnspec    = 0x00
-	erParamCode = 0x01
-	erTpdu      = 0x02
-	erParamVal  = 0x03
-	erCauseIdx  = 4
-	erInvIdx    = 7
+	erMinLen    = 5    // min length of an ER TPDU
+	erId        = 0x70 // ID of an ER TPDU
+	invalidID   = 0xc1 // ID of the invalid field
+	erUnspec    = 0x00 // error "Reason not specified"
+	erParamCode = 0x01 // error "Invalid parameter code"
+	erTpdu      = 0x02 // error "Invalid TPDU type"
+	erParamVal  = 0x03 // error "Invalid parameter value"
+	erCauseIdx  = 4    // index of the cause field
+	erInvIdx    = 7    // start index of the invalid TPDU
 	// DT-related defs
-	dtMinLen = 3
-	dtId     = 0xf0
+	dtMinLen = 3    // min length of a DT TPDU
+	dtId     = 0xf0 // ID of a DT TPDU
 	// ED-related defs
-	edMinLen = 3
-	edMaxLen = 19
-	edId     = 0x10
+	edMinLen = 3    // min length of an ED TPDU
+	edMaxLen = 19   // max length of an ED TPDU
+	edId     = 0x10 // ID of an ED TPDU
 	// DT and ED common defs
-	eotIdx   = 2
-	nrEot    = 0x80
-	nrNonEot = 0x00
+	eotIdx   = 2    // index of the EOT field
+	nrEot    = 0x80 // EOT option selection
+	nrNonEot = 0x00 // non-EOT option selection
 )
 
 // variables associated with a connection negotiation
@@ -128,7 +126,7 @@ func cr(cv connVars) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to 
 // and including the faulty byte
 func isCR(incoming []byte) (found bool, tlen uint8) {
-	found, tlen = isType(incoming, crId, crMinLen)
+	found, tlen = isType(incoming, crId, connMinLen)
 	if found {
 		// the class option must be zero
 		if incoming[classOptIdx] == 0x00 {
@@ -161,7 +159,7 @@ func cc(cv connVars) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to 
 // and including the faulty byte
 func isCC(incoming []byte) (found bool, tlen uint8) {
-	found, tlen = isType(incoming, ccId, ccMinLen)
+	found, tlen = isType(incoming, ccId, connMinLen)
 	if found {
 		// the class option must be zero
 		if incoming[classOptIdx] == 0x00 {
