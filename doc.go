@@ -53,7 +53,11 @@ The DialTOSI function connects to a server:
 
 A tosi address is composed by a TCP address and an optional
 "transport selector (TSEL)" which can be an arbitrary sequence
-of bytes. Thus '[10.20.30.40:80]:hello' is a valid address.
+of bytes. Thus '[10.20.30.40:80]:hello' is a valid address, the
+part inside the square brackets is the TCP address, and 'hello' is
+the TSEL. The TCP port can be omitted, and in this case the default
+value (102) will be used, as in '[10.20.30.40:]:hello'. The TSEL 
+can also be omitted, as in '[10.20.30.40:]:'. 
 
 The ListenTOSI function creates servers:
 
