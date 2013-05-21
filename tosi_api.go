@@ -26,11 +26,10 @@ package tosi
 import (
 	"errors"
 	"net"
-	"strconv"
 	"time"
 )
 
-const rfc1006port = 102 // Default TCP port used by TOSI servers
+const rfc1006port = "102" // Default TCP port used by TOSI servers
 
 // TOSIConn is an implementation of the net.Conn interface
 // for TOSI network connections.
@@ -52,7 +51,7 @@ type userData struct {
 // DialOpt contains options to be used by the DialOptTOSI function during
 // connection establishment: use of expedited data transfer, maximum TPDU
 // size and initial user data (up to 32 bytes). The maximum TPDU size should
-// be a multiple of 128, and be smaller than 65531 bytes. 
+// be a multiple of 128, and be smaller than 65531 bytes.
 type DialOpt struct {
 	Expedited   bool
 	Data        []byte
@@ -104,7 +103,7 @@ func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) 
 	return dial(net, loc, rem, cv)
 }
 
-// dial connects to the remote address raddr on the network net, which must
+// dial connects to the remote address raddr on the network tnet, which must
 // be "tosi", "tosi4", or "tosi6".
 // If laddr is not nil, it is used as the local address for the connection.
 // The parameters of the connection request are taken as inputs from the caller.
@@ -486,7 +485,7 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	// if no TCP port was specified, use default (102)
 	_, port, err := net.SplitHostPort(tcp)
 	if port == "" {
-		service += strconv.Itoa(rfc1006port)
+		service += rfc1006port
 	}
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {

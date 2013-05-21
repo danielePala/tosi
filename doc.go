@@ -22,12 +22,12 @@
 Package tosi provides an implementation of RFC 1006.
 
 The protocol is defined at http://tools.ietf.org/html/rfc1006.
-The implementation puts ISO/IEC 8072/8073 transport class 0 
-(with some minor modifications) on top of a TCP/IP connection, on port 102 
+The implementation puts ISO/IEC 8072/8073 transport class 0
+(with some minor modifications) on top of a TCP/IP connection, on port 102
 by default, even if another port can be chosen.
-ISO/IEC 8072/8073 is defined at 
+ISO/IEC 8072/8073 is defined at
 http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
-and 
+and
 http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
 
 The external interface is based on the constructs defined in
@@ -42,7 +42,7 @@ The DialTOSI function connects to a server:
  tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[192.168.1.1:80]:100")
  if err != nil {
          // handle error
- }                                                                                                    
+ }
  conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
  if err != nil {
          // handle error
@@ -56,8 +56,8 @@ A tosi address is composed by a TCP address and an optional
 of bytes. Thus '[10.20.30.40:80]:hello' is a valid address, the
 part inside the square brackets is the TCP address, and 'hello' is
 the TSEL. The TCP port can be omitted, and in this case the default
-value (102) will be used, as in '[10.20.30.40:]:hello'. The TSEL 
-can also be omitted, as in '[10.20.30.40:]:'. 
+value (102) will be used, as in '[10.20.30.40:]:hello'. The TSEL
+can also be omitted, as in '[10.20.30.40:]:'.
 
 The ListenTOSI function creates servers:
 
