@@ -26,6 +26,7 @@ package tosi
 import (
 	"errors"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -34,12 +35,12 @@ const rfc1006port = "102" // Default TCP port used by TOSI servers
 // TOSIConn is an implementation of the net.Conn interface
 // for TOSI network connections.
 type TOSIConn struct {
+	MaxTpduSize    int         // max TPDU size
+	UseExpedited   bool        // use of expedited TPDUs enabled
 	tcpConn        net.TCPConn // TCP connection
 	laddr, raddr   TOSIAddr    // local and remote address
-	MaxTpduSize    int         // max TPDU size
 	srcRef, dstRef [2]byte     // connection identifiers
 	userData                   // read buffer
-	UseExpedited   bool        // use of expedited TPDUs enabled
 }
 
 // structure holding data from TCP which hasn't been returned to the user yet
@@ -53,9 +54,9 @@ type userData struct {
 // size and initial user data (up to 32 bytes). The maximum TPDU size should
 // be a multiple of 128, and be smaller than 65531 bytes.
 type DialOpt struct {
-	Expedited   bool
-	Data        []byte
-	MaxTPDUSize int
+	Expedited   bool   // use of expedited data transfer
+	Data        []byte // initial user data
+	MaxTPDUSize int    // maximum TPDU size
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must
@@ -472,15 +473,25 @@ func (a *TOSIAddr) String() string {
 
 // ResolveTOSIAddr parses addr as a TOSI address of the form tcp:tsel and
 // resolves domain names to numeric addresses on the network tnet,
-// which must be "tosi", "tosi4" or "tosi6".
-// The tcp part must be a valid TCP address of the form host:port, enclosed
-// in square brackets, as in [127.0.0.1:80].
-// A literal IPv6 host address must be enclosed in square brackets,
-// as in "[::]:80". tsel is the "trasport selector", which can be an arbitrary
-// sequence of bytes. Thus '[10.20.30.40:80]:hello' is a valid address.
-// If no TCP port is specified, it defaults to 102.
+// which must be "tosi", "tosi4" or "tosi6". The tcp part must be a valid
+// TCP address of the form host:port, as in "127.0.0.1:80", or just an IP address
+// followed by ':', as in "127.0.0.1:". A literal IPv6 host address must be
+// enclosed in square brackets, as in "[::]:80". tsel is the "trasport selector",
+// which can be an arbitrary sequence of bytes. Thus "10.20.30.40:80:hello" is a
+// valid address. If no TCP port is specified, as in "10.20.30.40::hello", it
+// defaults to 102. The tsel parameter is optional, thus "10.20.30.40:80:"
+// is a valid address.
 func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
-	tcp, tsel, err := net.SplitHostPort(addr)
+	// after the last ':' we have the TSEL
+	index := strings.LastIndex(addr, ":")
+	if index < 0 {
+		return nil, errors.New("invalid address")
+	}
+	tcp := addr[:index]
+	var tsel string
+	if len(addr) > (index + 1) {
+		tsel = addr[index+1:]
+	}
 	service := tcp
 	// if no TCP port was specified, use default (102)
 	_, port, err := net.SplitHostPort(tcp)
@@ -512,18 +523,13 @@ type TOSIListener struct {
 // Accept implements the Accept method in the net.Listener interface;
 // it waits for the next call and returns a generic net.Conn.
 func (l *TOSIListener) Accept() (net.Conn, error) {
-	return l.accept(nil)
+	return l.AcceptTOSI(nil)
 }
 
 // AcceptTOSI is the same as Accept, but it also takes a user function which
 // should return initial user data to be sent with the CC packet, taking as
 // input the CR user data (if present).
 func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
-	return l.accept(data)
-}
-
-// accept is a private function implementing both Accept and AcceptTOSI.
-func (l *TOSIListener) accept(data func([]byte) []byte) (net.Conn, error) {
 	// listen for TCP connections
 	tcp, err := l.tcpListener.AcceptTCP()
 	if err != nil {

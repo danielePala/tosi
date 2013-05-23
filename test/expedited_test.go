@@ -35,7 +35,7 @@ func TestWrite2bytesED(t *testing.T) {
 	go tosiServerRead2bytesED(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
 	opt := tosi.DialOpt{Expedited: true}
@@ -61,7 +61,7 @@ func TestWriteMaxED(t *testing.T) {
 	go tosiServerReadMaxED(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
 	opt := tosi.DialOpt{Expedited: true}
@@ -88,7 +88,7 @@ func TestWrite2bytesED2(t *testing.T) {
 	go tosiServerRead1byteED(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
 	opt := tosi.DialOpt{Expedited: true}
@@ -114,7 +114,7 @@ func TestWriteMaxED2(t *testing.T) {
 	go tosiServerReadMaxED2(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
 	opt := tosi.DialOpt{Expedited: true}
@@ -135,7 +135,7 @@ func TestWriteMaxED2(t *testing.T) {
 
 // a tosi server reading 2 bytes. No fault is expected.
 func tosiServerRead2bytesED(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
@@ -170,7 +170,7 @@ func tosiServerRead2bytesED(t *testing.T) {
 
 // a tosi server reading 16 bytes. No fault is expected.
 func tosiServerReadMaxED(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
@@ -205,7 +205,7 @@ func tosiServerReadMaxED(t *testing.T) {
 
 // a tosi server reading 1 byte for two times. No fault is expected.
 func tosiServerRead1byteED(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)
@@ -254,7 +254,7 @@ func tosiServerRead1byteED(t *testing.T) {
 
 // a tosi server reading 27 bytes. No fault is expected.
 func tosiServerReadMaxED2(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[127.0.0.1:]:100")
+	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
 	checkErrorED(err, t)

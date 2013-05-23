@@ -39,7 +39,7 @@ found here: http://golang.org/pkg/net/.
 
 The DialTOSI function connects to a server:
 
- tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[192.168.1.1:80]:100")
+ tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "192.168.1.1:80:100")
  if err != nil {
          // handle error
  }
@@ -53,15 +53,14 @@ The DialTOSI function connects to a server:
 
 A tosi address is composed by a TCP address and an optional
 "transport selector (TSEL)" which can be an arbitrary sequence
-of bytes. Thus '[10.20.30.40:80]:hello' is a valid address, the
-part inside the square brackets is the TCP address, and 'hello' is
+of bytes. Thus "10.20.30.40:80:hello" is a valid address, and 'hello' is
 the TSEL. The TCP port can be omitted, and in this case the default
-value (102) will be used, as in '[10.20.30.40:]:hello'. The TSEL
-can also be omitted, as in '[10.20.30.40:]:'.
+value (102) will be used, as in "10.20.30.40::hello". The TSEL
+can also be omitted, as in "10.20.30.40::".
 
 The ListenTOSI function creates servers:
 
- tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "[192.168.1.1:80]:100")
+ tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "192.168.1.1:80:100")
  if err != nil {
          // handle error
  }
