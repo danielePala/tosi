@@ -492,17 +492,16 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	if len(addr) > (index + 1) {
 		tsel = addr[index+1:]
 	}
-	service := tcp
 	// if no TCP port was specified, use default (102)
 	_, port, err := net.SplitHostPort(tcp)
 	if port == "" {
-		service += rfc1006port
+		tcp += rfc1006port
 	}
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
 		return nil, errors.New("invalid network")
 	}
-	tcpAddr, err := net.ResolveTCPAddr(tcpNet, service)
+	tcpAddr, err := net.ResolveTCPAddr(tcpNet, tcp)
 	if err != nil {
 		return
 	}
@@ -527,8 +526,9 @@ func (l *TOSIListener) Accept() (net.Conn, error) {
 }
 
 // AcceptTOSI is the same as Accept, but it also takes a user function which
-// should return initial user data to be sent with the CC packet, taking as
-// input the CR user data (if present).
+// should produce initial data to be sent during connection establishment,
+// taking as input the data received from the caller (if present). In fact,
+// RFC 1006 allows for the exchange of user data during connection establishment.
 func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 	// listen for TCP connections
 	tcp, err := l.tcpListener.AcceptTCP()

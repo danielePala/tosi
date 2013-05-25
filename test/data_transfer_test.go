@@ -98,7 +98,7 @@ func TestWrite2bytes2(t *testing.T) {
 }
 
 // Test 4
-// test data write with more than maximum SDU size (default: 65528). 
+// test data write with more than maximum SDU size (default: 65528).
 // No error should occur.
 // the server has a read buffer of exactly maxSduSize bytes.
 func TestWriteMax2(t *testing.T) {
