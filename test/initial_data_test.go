@@ -46,9 +46,9 @@ func TestWrite5bytesIn(t *testing.T) {
 		t.FailNow()
 	}
 	buf := make([]byte, 100)
-	n, err, expedited := conn.ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorIn(err, t)
-	if n != 5 {
+	if read.N != 5 {
 		t.Log("Wrong data size")
 		t.FailNow()
 	}
@@ -56,7 +56,7 @@ func TestWrite5bytesIn(t *testing.T) {
 		t.Log("Wrong data values")
 		t.FailNow()
 	}
-	if expedited == true {
+	if read.Expedited == true {
 		t.Log("expedited data received")
 		t.FailNow()
 	}
@@ -85,9 +85,9 @@ func TestWrite35bytesIn(t *testing.T) {
 		t.FailNow()
 	}
 	buf := make([]byte, 100)
-	n, err, expedited := conn.ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorIn(err, t)
-	if n != 32 {
+	if read.N != 32 {
 		t.Log("Wrong data size")
 		t.FailNow()
 	}
@@ -95,7 +95,7 @@ func TestWrite35bytesIn(t *testing.T) {
 		t.Log("Wrong data values")
 		t.FailNow()
 	}
-	if expedited == true {
+	if read.Expedited == true {
 		t.Log("expedited data received")
 		t.FailNow()
 	}

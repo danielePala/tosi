@@ -47,6 +47,7 @@ type TOSIConn struct {
 type userData struct {
 	readBuf   []byte // read buffer
 	expedited bool   // is this data from an expedited TPDU?
+	endOfTSDU bool   // is this data the last part of a TSDU?
 }
 
 // DialOpt contains options to be used by the DialOptTOSI function during
@@ -57,6 +58,28 @@ type DialOpt struct {
 	Expedited   bool   // use of expedited data transfer
 	Data        []byte // initial user data
 	MaxTPDUSize int    // maximum TPDU size
+}
+
+// ReadInfo contains information returned by ReadTOSI regarding the data
+// passed to the caller: the number of bytes read, if the data comes
+// from an expedited TPDU, and if it is the end of a TSDU.
+type ReadInfo struct {
+	N         int  // number of bytes read
+	Expedited bool // is this data from an expedited TPDU?
+	EndOfTSDU bool // is this data the last part of a TSDU?
+}
+
+// TOSIAddr represents the address of a TOSI end point.
+type TOSIAddr struct {
+	net.TCPAddr        // TCP address
+	Tsel        []byte // Transport selector (optional)
+}
+
+// TOSIListener is a TOSI network listener. Clients should typically use
+// variables of type net.Listener instead of assuming TOSI.
+type TOSIListener struct {
+	addr        *TOSIAddr
+	tcpListener net.TCPListener
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must
@@ -255,28 +278,31 @@ func writePacket(c *net.TCPConn, buf []byte) (int, error) {
 // If b is not large enough for the TPDU data, it fills b and next Read
 // will read the rest of the TPDU data.
 func (c *TOSIConn) Read(b []byte) (n int, err error) {
-	n, err, _ = c.ReadTOSI(b)
-	return
+	read, err := c.ReadTOSI(b)
+	return read.N, err
 }
 
 // ReadTOSI is the same as Read, but it also indicates if the data comes
-// from an expedited TPDU.
-func (c *TOSIConn) ReadTOSI(b []byte) (n int, err error, expedited bool) {
+// from an expedited TPDU, and if it is the end of a TSDU.
+func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 	if b == nil {
-		return 0, errors.New("invalid input"), false
+		return read, errors.New("invalid input")
 	}
 	// see if there's something in the read buffer
 	if c.readBuf != nil {
+		read.EndOfTSDU = c.endOfTSDU
+		read.Expedited = c.expedited
 		copy(b, c.readBuf)
 		if len(b) < len(c.readBuf) {
 			// Cannot return the whole SDU
-			n = len(b)
+			read.N = len(b)
 			c.readBuf = c.readBuf[len(b):]
+			read.EndOfTSDU = false
 		} else {
-			n = len(c.readBuf)
+			read.N = len(c.readBuf)
 			c.readBuf = nil
 		}
-		return n, nil, c.expedited
+		return read, nil
 	}
 	// read buffer empty, try to read a TPKT header
 	buf := make([]byte, tpktHlen)
@@ -287,55 +313,57 @@ func (c *TOSIConn) ReadTOSI(b []byte) (n int, err error, expedited bool) {
 		tpdu := make([]byte, tlen-tpktHlen)
 		_, err = readPacket(&c.tcpConn, tpdu)
 		if err != nil {
-			return 0, err, false
+			return read, err
 		}
 		isDT, errIdx := isDT(tpdu)
 		isED, _ := isED(tpdu)
 		if isDT {
-			n, err = c.handleDt(b, tpdu)
-			return n, err, false
+			read.N, err, read.EndOfTSDU = c.handleDt(b, tpdu)
+			return read, err
 		}
 		if isED && c.UseExpedited {
-			n, err = c.handleEd(b, tpdu)
-			return n, err, true
+			read.N, err, read.EndOfTSDU = c.handleEd(b, tpdu)
+			read.Expedited = true
+			return read, err
 		}
 		err = c.handleDataError(tpdu, errIdx)
 	}
 	if err == nil {
 		err = errors.New("received an invalid TPKT")
 	}
-	return 0, err, false
+	return read, err
 }
 
 // parse an ED, handling errors and buffering issues
-func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error) {
+func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateEd(tpdu)
 	if !valid {
 		// we got an invalid ED
 		// reply with an ER
 		go writeEr(c, erBuf)
-		return 0, errors.New("received an invalid ED")
+		return 0, errors.New("received an invalid ED"), false
 	}
 	c.expedited = true
 	return c.handleData(b, tpdu)
 }
 
 // parse a DT, handling errors and buffering issues
-func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error) {
+func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateDt(tpdu, c.MaxTpduSize)
 	if !valid {
 		// we got an invalid DT
 		// reply with an ER
 		go writeEr(c, erBuf)
-		return 0, errors.New("received an invalid DT")
+		return 0, errors.New("received an invalid DT"), false
 	}
 	c.expedited = false
 	return c.handleData(b, tpdu)
 }
 
 // parse a DT or ED, handling buffering issues
-func (c *TOSIConn) handleData(b, tpdu []byte) (n int, err error) {
+func (c *TOSIConn) handleData(b, tpdu []byte) (n int, err error, end bool) {
 	sduLen := len(tpdu) - dtMinLen
+	end = (tpdu[2] == nrEot)
 	copy(b, tpdu[dtMinLen:])
 	if len(b) < sduLen {
 		// Cannot return the whole SDU, save to buffer
@@ -344,6 +372,8 @@ func (c *TOSIConn) handleData(b, tpdu []byte) (n int, err error) {
 		c.readBuf = make([]byte, uncopiedLen)
 		copy(c.readBuf, tpdu[uncopiedIdx:])
 		n = len(b)
+		c.endOfTSDU = end
+		end = false
 	} else {
 		c.readBuf = nil
 		n = sduLen
@@ -453,12 +483,6 @@ func (c *TOSIConn) writeTpdu(b []byte, maxSduSize int) (n int, e error) {
 	return writePacket(&c.tcpConn, tpkt(tpdu(b, nrEot)))
 }
 
-// TOSIAddr represents the address of a TOSI end point.
-type TOSIAddr struct {
-	net.TCPAddr        // TCP address
-	Tsel        []byte // Transport selector (optional)
-}
-
 // Network returns the address's network name, "tosi".
 func (a *TOSIAddr) Network() string {
 	return "tosi"
@@ -510,13 +534,6 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 		tosiAddr.Tsel = []byte(tsel)
 	}
 	return tosiAddr, nil
-}
-
-// TOSIListener is a TOSI network listener. Clients should typically use
-// variables of type net.Listener instead of assuming TOSI.
-type TOSIListener struct {
-	addr        *TOSIAddr
-	tcpListener net.TCPListener
 }
 
 // Accept implements the Accept method in the net.Listener interface;
