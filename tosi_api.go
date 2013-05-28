@@ -137,9 +137,14 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		// this check is needed by Go versions < 1.1
 		return nil, errors.New("unknown network")
 	}
-	TCPraddr := raddr.TCPAddr
+	var tcpLaddr *net.TCPAddr
 	// try to establish a TCP connection
-	tcp, err := net.DialTCP(TCPnet, nil, &TCPraddr)
+	if laddr != nil {
+		tcpLaddr = &laddr.TCPAddr
+	} else {
+		tcpLaddr = nil
+	}
+	tcp, err := net.DialTCP(TCPnet, tcpLaddr, &raddr.TCPAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +169,8 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 			if laddr == nil {
 				var tcpAddr = tcp.LocalAddr().(*net.TCPAddr)
 				c.laddr.TCPAddr = *tcpAddr
+			} else {
+				c.laddr = *laddr
 			}
 			c.raddr = *raddr
 			return c, err
