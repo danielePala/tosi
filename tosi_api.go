@@ -138,18 +138,19 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		return nil, errors.New("unknown network")
 	}
 	var tcpLaddr *net.TCPAddr
-	// try to establish a TCP connection
 	if laddr != nil {
 		tcpLaddr = &laddr.TCPAddr
 	} else {
 		tcpLaddr = nil
 	}
+	// try to establish a TCP connection
 	tcp, err := net.DialTCP(TCPnet, tcpLaddr, &raddr.TCPAddr)
 	if err != nil {
 		return nil, err
 	}
 	_, err = writePacket(tcp, tpkt(cr(cv))) // send a CR
 	if err != nil {
+		tcp.Close()
 		return nil, err
 	}
 	// try to read a TPKT header as response
@@ -161,6 +162,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		tpdu := make([]byte, tlen-tpktHlen)
 		_, err = readPacket(tcp, tpdu)
 		if err != nil {
+			tcp.Close()
 			return nil, err
 		}
 		isCC, _ := isCC(tpdu)

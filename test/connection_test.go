@@ -86,7 +86,7 @@ func TestConnLAddr(t *testing.T) {
 	time.Sleep(time.Second)
 	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkError(err, t)
-	localTOSIAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::999")
+	localTOSIAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1:10102:999")
 	checkError(err, t)
 	// try to connect
 	conn, err := tosi.DialTOSI("tosi", localTOSIAddr, tosiAddr)
