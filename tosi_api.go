@@ -168,6 +168,9 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 		isCC, _ := isCC(tpdu)
 		if isCC {
 			c, err := handleCc(tpdu, tcp, cv)
+			if err != nil {
+				return c, err
+			}
 			if laddr == nil {
 				var tcpAddr = tcp.LocalAddr().(*net.TCPAddr)
 				c.laddr.TCPAddr = *tcpAddr
