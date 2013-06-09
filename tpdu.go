@@ -248,11 +248,7 @@ func getConnVars(incoming []byte) (cv connVars) {
 				cv.options = incoming[0]
 			}
 		}
-		if len(incoming) > pLen {
-			incoming = incoming[pLen:]
-		} else {
-			return
-		}
+		incoming = incoming[pLen:]
 	}
 	return
 }
