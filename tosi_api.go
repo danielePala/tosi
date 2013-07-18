@@ -72,7 +72,7 @@ type ReadInfo struct {
 // TOSIAddr represents the address of a TOSI end point.
 type TOSIAddr struct {
 	net.TCPAddr        // TCP address
-	Tsel        []byte // Transport selector (optional)
+	TSel        []byte // Transport selector (optional)
 }
 
 // TOSIListener is a TOSI network listener. Clients should typically use
@@ -103,9 +103,9 @@ func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) 
 	var cv connVars
 	cv.srcRef = [2]byte{0x01, 0x01} // random non-zero value
 	if loc != nil {
-		cv.locTsel = loc.Tsel
+		cv.locTsel = loc.TSel
 	}
-	cv.remTsel = rem.Tsel
+	cv.remTsel = rem.TSel
 	if op.Expedited {
 		cv.options = expeditedOpt
 	}
@@ -501,8 +501,8 @@ func (a *TOSIAddr) Network() string {
 }
 
 func (a *TOSIAddr) String() string {
-	if a.Tsel != nil {
-		return a.IP.String() + ":" + string(a.Tsel)
+	if a.TSel != nil {
+		return a.IP.String() + ":" + string(a.TSel)
 	}
 	return a.IP.String()
 }
@@ -543,7 +543,7 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	}
 	tosiAddr = &TOSIAddr{TCPAddr: *tcpAddr}
 	if tsel != "" {
-		tosiAddr.Tsel = []byte(tsel)
+		tosiAddr.TSel = []byte(tsel)
 	}
 	return tosiAddr, nil
 }
@@ -600,12 +600,12 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) {
 	var reply []byte
 	var repCv connVars
-	valid, erBuf := validateCr(tpdu, l.(*TOSIListener).addr.Tsel)
+	valid, erBuf := validateCr(tpdu, l.(*TOSIListener).addr.TSel)
 	cv := getConnVars(tpdu)
 	if valid {
 		// reply with a CC
 		repCv.locTsel = cv.locTsel
-		repCv.remTsel = l.(*TOSIListener).addr.Tsel
+		repCv.remTsel = l.(*TOSIListener).addr.TSel
 		if cv.prefTpduSize == nil {
 			repCv.tpduSize = cv.tpduSize
 		}
@@ -632,7 +632,7 @@ func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) 
 		tcpAddr = tcp.RemoteAddr().(*net.TCPAddr)
 		raddr := TOSIAddr{
 			TCPAddr: *tcpAddr,
-			Tsel:    cv.locTsel}
+			TSel:    cv.locTsel}
 		return &TOSIConn{
 			tcpConn:      *tcp.(*net.TCPConn),
 			laddr:        *l.(*TOSIListener).addr,
