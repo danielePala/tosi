@@ -25,7 +25,7 @@ The protocol is defined at http://tools.ietf.org/html/rfc1006.
 The implementation puts ISO/IEC 8072/8073 transport class 0
 (with some minor modifications) on top of a TCP/IP connection, on port 102
 by default, even if another port can be chosen.
-ISO/IEC 8072/8073 is defined at
+ISO/IEC 8072/8073 are identical to ITU standards X.214 and X.224, defined at
 http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3262
 and
 http://www.itu.int/ITU-T/recommendations/rec.aspx?id=3264.
