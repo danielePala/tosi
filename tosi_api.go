@@ -192,7 +192,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 // parse a CC, handling errors
 func handleCc(tpdu []byte, tcp *net.TCPConn, cv connVars) (*TOSIConn, error) {
 	// we have a CC, check if it is valid
-	valid, erBuf := validateCc(tpdu, cv)
+	valid, erBuf := validateCC(tpdu, cv)
 	if !valid {
 		// we got an invalid CC
 		// reply with an ER and refuse the connection
@@ -348,7 +348,7 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 
 // parse an ED, handling errors and buffering issues
 func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
-	valid, erBuf := validateEd(tpdu)
+	valid, erBuf := validateED(tpdu)
 	if !valid {
 		// we got an invalid ED
 		// reply with an ER
@@ -361,7 +361,7 @@ func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
 
 // parse a DT, handling errors and buffering issues
 func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error, end bool) {
-	valid, erBuf := validateDt(tpdu, c.MaxTpduSize)
+	valid, erBuf := validateDT(tpdu, c.MaxTpduSize)
 	if !valid {
 		// we got an invalid DT
 		// reply with an ER
@@ -600,7 +600,7 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) {
 	var reply []byte
 	var repCv connVars
-	valid, erBuf := validateCr(tpdu, l.(*TOSIListener).addr.TSel)
+	valid, erBuf := validateCR(tpdu, l.(*TOSIListener).addr.TSel)
 	cv := getConnVars(tpdu)
 	if valid {
 		// reply with a CC

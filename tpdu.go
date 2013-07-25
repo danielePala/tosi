@@ -38,9 +38,9 @@ const (
 	defTpduSize = 65531
 	minTpduSize = 128
 	// CR-related defs
-	crId = 0xe0 // ID of a CR TPDU
+	crID = 0xe0 // ID of a CR TPDU
 	// CC-related defs
-	ccId = 0xd0 // ID of a CR TPDU
+	ccID = 0xd0 // ID of a CR TPDU
 	// CR and CC common defs
 	connMinLen      = 7    // min length of a CR or CC TPDU
 	tpduSizeID      = 0xc0 // ID of the TPDU size field
@@ -60,7 +60,7 @@ const (
 	maxDataLen      = 32   // max length of initial data
 	// DR-related defs
 	drMinLen    = 7    // min length of a DR TPDU
-	drId        = 0x80 // ID of a DR TPDU
+	drID        = 0x80 // ID of a DR TPDU
 	drUnspec    = 0x00 // reason "Reason not specified"
 	drCong      = 0x01 // reason "Congestion at TSAP"
 	drSna       = 0x02 // reason "Session entity not attached to TSAP"
@@ -70,7 +70,7 @@ const (
 	drInfoIdx   = 9    // index of the info field
 	// ER-related defs
 	erMinLen    = 5    // min length of an ER TPDU
-	erId        = 0x70 // ID of an ER TPDU
+	erID        = 0x70 // ID of an ER TPDU
 	invalidID   = 0xc1 // ID of the invalid field
 	erUnspec    = 0x00 // error "Reason not specified"
 	erParamCode = 0x01 // error "Invalid parameter code"
@@ -80,11 +80,11 @@ const (
 	erInvIdx    = 7    // start index of the invalid TPDU
 	// DT-related defs
 	dtMinLen = 3    // min length of a DT TPDU
-	dtId     = 0xf0 // ID of a DT TPDU
+	dtID     = 0xf0 // ID of a DT TPDU
 	// ED-related defs
 	edMinLen = 3    // min length of an ED TPDU
 	edMaxLen = 19   // max length of an ED TPDU
-	edId     = 0x10 // ID of an ED TPDU
+	edID     = 0x10 // ID of an ED TPDU
 	// DT and ED common defs
 	eotIdx   = 2    // index of the EOT field
 	nrEot    = 0x80 // EOT option selection
@@ -109,7 +109,7 @@ func cr(cv connVars) (tpdu []byte) {
 	SRC_REF := cv.srcRef[:]      // should identify the transport connection
 	CLASS_OPTION := []byte{0x00} // class 0
 	// construct the fixed part of CR
-	fixed := append([]byte{crId}, DST_REF...)
+	fixed := append([]byte{crID}, DST_REF...)
 	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, CLASS_OPTION...)
 	// construct the variable part of CR
@@ -126,7 +126,7 @@ func cr(cv connVars) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isCR(incoming []byte) (found bool, tlen uint8) {
-	found, tlen = isType(incoming, crId, connMinLen)
+	found, tlen = isType(incoming, crID, connMinLen)
 	if found {
 		// the class option must be zero
 		if incoming[classOptIdx] == 0x00 {
@@ -144,7 +144,7 @@ func cc(cv connVars) (tpdu []byte) {
 	DST_REF := cv.dstRef[:]
 	SRC_REF := cv.srcRef[:]
 	CLASS_OPTION := []byte{0x00}
-	fixed := append([]byte{ccId}, DST_REF...)
+	fixed := append([]byte{ccID}, DST_REF...)
 	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, CLASS_OPTION...)
 	variable := setVarPart(cv)
@@ -159,7 +159,7 @@ func cc(cv connVars) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isCC(incoming []byte) (found bool, tlen uint8) {
-	found, tlen = isType(incoming, ccId, connMinLen)
+	found, tlen = isType(incoming, ccID, connMinLen)
 	if found {
 		// the class option must be zero
 		if incoming[classOptIdx] == 0x00 {
@@ -255,7 +255,7 @@ func getConnVars(incoming []byte) (cv connVars) {
 
 // validate a CR TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
-func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
+func validateCR(incoming []byte, remTsel []byte) (bool, []byte) {
 	// validate fixed part - dstref must be zero
 	ok, vars := validateFixed(incoming, []byte{0x00, 0x00}, remTsel != nil)
 	if !ok || vars == nil {
@@ -277,11 +277,11 @@ func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
 			ok = bytes.Equal(vars[2:optLen], remTsel)
 			remTselFound = true
 		case tpduSizeID:
-			ok = validCrTpduSize(vars)
+			ok = validCRTpduSize(vars)
 		case prefTpduSizeID:
-			ok = validCrPrefTpduSize(vars)
+			ok = validCRPrefTpduSize(vars)
 		case optionsID:
-			ok = validCrOptions(vars)
+			ok = validCROptions(vars)
 		default:
 			ok = false // unknown option
 		}
@@ -304,7 +304,7 @@ func validateCr(incoming []byte, remTsel []byte) (bool, []byte) {
 // NOTE: it is legal to ignore the prefTpduSize parameter, even if it was
 // present in the CR. It is illegal to have both tpduSize and prefTpduSize
 // in a CC TPDU.
-func validateCc(incoming []byte, crCv connVars) (bool, []byte) {
+func validateCC(incoming []byte, crCv connVars) (bool, []byte) {
 	// validate fixed part - dstref must be equal to the srcref of the CR
 	ok, vars := validateFixed(incoming, crCv.srcRef[:], crCv.tpduSize > 0)
 	if !ok || vars == nil {
@@ -327,13 +327,13 @@ func validateCc(incoming []byte, crCv connVars) (bool, []byte) {
 		case remTselID:
 			ok = bytes.Equal(vars[2:optLen], crCv.remTsel)
 		case tpduSizeID:
-			ok = validCcTpduSize(vars, crCv, prefTpduSize)
+			ok = validCCTpduSize(vars, crCv, prefTpduSize)
 			tpduSize = true
 		case prefTpduSizeID:
-			ok = validCcPrefTpduSize(vars, crCv, tpduSize)
+			ok = validCCPrefTpduSize(vars, crCv, tpduSize)
 			prefTpduSize = true
 		case optionsID:
-			ok = validCcOptions(vars, crCv)
+			ok = validCCOptions(vars, crCv)
 		default:
 			ok = false // unknown option
 		}
@@ -381,7 +381,7 @@ func validateFixed(incoming, dstRef []byte, needVar bool) (bool, []byte) {
 }
 
 // validate the 'TPDU size' option of a CR packet
-func validCrTpduSize(vars []byte) bool {
+func validCRTpduSize(vars []byte) bool {
 	optLen := int(vars[1])
 	if optLen > tpduSizeLen {
 		return false // invalid length
@@ -394,7 +394,7 @@ func validCrTpduSize(vars []byte) bool {
 }
 
 // validate the 'preferred TPDU size' option of a CR packet
-func validCrPrefTpduSize(vars []byte) bool {
+func validCRPrefTpduSize(vars []byte) bool {
 	optLen := int(vars[1])
 	if optLen > prefTpduSizeLen {
 		return false // invalid length
@@ -408,7 +408,7 @@ func validCrPrefTpduSize(vars []byte) bool {
 }
 
 // validate the 'Additional option selection' option of a CR packet
-func validCrOptions(vars []byte) bool {
+func validCROptions(vars []byte) bool {
 	optLen := int(vars[1])
 	if optLen > optionsLen {
 		return false // invalid length
@@ -421,7 +421,7 @@ func validCrOptions(vars []byte) bool {
 }
 
 // validate the 'TPDU size' option of a CC packet
-func validCcTpduSize(vars []byte, crCv connVars, prefTpduSize bool) bool {
+func validCCTpduSize(vars []byte, crCv connVars, prefTpduSize bool) bool {
 	optLen := int(vars[1])
 	tpduSize := vars[2]
 	if optLen > tpduSizeLen {
@@ -443,7 +443,7 @@ func validCcTpduSize(vars []byte, crCv connVars, prefTpduSize bool) bool {
 }
 
 // validate the 'preferred TPDU size' option of a CC packet
-func validCcPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
+func validCCPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
 	optLen := int(vars[1])
 	if optLen > prefTpduSizeLen {
 		return false // invalid length
@@ -465,7 +465,7 @@ func validCcPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
 }
 
 // validate the 'Additional option selection' option of a CC packet
-func validCcOptions(vars []byte, crCv connVars) bool {
+func validCCOptions(vars []byte, crCv connVars) bool {
 	optLen := int(vars[1])
 	if optLen > optionsLen {
 		return false // invalid length
@@ -483,7 +483,7 @@ func validCcOptions(vars []byte, crCv connVars) bool {
 
 // validate a DT TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
-func validateDt(incoming []byte, maxTpduSize int) (valid bool, erBuf []byte) {
+func validateDT(incoming []byte, maxTpduSize int) (valid bool, erBuf []byte) {
 	if len(incoming) > maxTpduSize {
 		return false, incoming[:maxTpduSize+1]
 	}
@@ -495,8 +495,8 @@ func validateDt(incoming []byte, maxTpduSize int) (valid bool, erBuf []byte) {
 
 // validate an ED TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
-func validateEd(incoming []byte) (valid bool, erBuf []byte) {
-	return validateDt(incoming, edMaxLen)
+func validateED(incoming []byte) (valid bool, erBuf []byte) {
+	return validateDT(incoming, edMaxLen)
 }
 
 /* DR - Disconnect Request */
@@ -505,7 +505,7 @@ func validateEd(incoming []byte) (valid bool, erBuf []byte) {
 func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 	DST_REF := conn.dstRef[:]
 	SRC_REF := conn.srcRef[:]
-	fixed := append([]byte{drId}, DST_REF...)
+	fixed := append([]byte{drID}, DST_REF...)
 	fixed = append(fixed, SRC_REF...)
 	fixed = append(fixed, reason)
 	var variable []byte
@@ -529,7 +529,7 @@ func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isDR(incoming []byte) (found bool, tlen uint8) {
-	return isType(incoming, drId, drMinLen)
+	return isType(incoming, drID, drMinLen)
 }
 
 // return info about the disconnection request
@@ -573,7 +573,7 @@ func getMaxTpduSize(cv connVars) (size uint64) {
 // This parameter is mandatory in class 0.
 func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 	DST_REF := dstRef
-	fixed := append([]byte{erId}, DST_REF...)
+	fixed := append([]byte{erID}, DST_REF...)
 	fixed = append(fixed, cause)
 	var variable []byte
 	// construct the invalidTpdu option
@@ -590,7 +590,7 @@ func er(dstRef []byte, cause byte, invalidTpdu []byte) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isER(incoming []byte) (found bool, tlen uint8) {
-	return isType(incoming, erId, erMinLen)
+	return isType(incoming, erID, erMinLen)
 }
 
 // return info about the error occurred
@@ -610,7 +610,7 @@ func getERerror(tpdu []byte) (e error) {
 
 /* DT - Data Transfer */
 func dt(userData []byte, endOfTsdu byte) (tpdu []byte) {
-	tpdu = append([]byte{dtId}, endOfTsdu)
+	tpdu = append([]byte{dtID}, endOfTsdu)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
@@ -621,13 +621,13 @@ func dt(userData []byte, endOfTsdu byte) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isDT(incoming []byte) (found bool, tlen uint8) {
-	return isType(incoming, dtId, dtMinLen)
+	return isType(incoming, dtID, dtMinLen)
 }
 
 /* ED - Expedited Data. This is a non-standard TPDU defined in RFC 1006 */
 /* It is equal to DT, just with a different ID */
 func ed(userData []byte, endOfTsdu byte) (tpdu []byte) {
-	tpdu = append([]byte{edId}, endOfTsdu)
+	tpdu = append([]byte{edID}, endOfTsdu)
 	pLen := byte(len(tpdu))
 	tpdu = append([]byte{pLen}, tpdu...)
 	tpdu = append(tpdu, userData...)
@@ -638,7 +638,7 @@ func ed(userData []byte, endOfTsdu byte) (tpdu []byte) {
 // in case of error tlen is the length of the input slice up to
 // and including the faulty byte
 func isED(incoming []byte) (found bool, tlen uint8) {
-	return isType(incoming, edId, edMinLen)
+	return isType(incoming, edID, edMinLen)
 }
 
 // determine if a packet is of a certain type, and read its Length Indicator
