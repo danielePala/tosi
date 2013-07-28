@@ -217,11 +217,11 @@ func handleDialError(tpdu, srcRef []byte, tcp *net.TCPConn) (err error) {
 	// no CC received, maybe it's an ER or DR
 	isER, _ := isER(tpdu)
 	if isER {
-		err = getERerror(tpdu)
+		err = getErrorER(tpdu)
 	}
 	isDR, _ := isDR(tpdu)
 	if isDR {
-		err = getDRerror(tpdu)
+		err = getErrorDR(tpdu)
 	}
 	// unknown TPDU
 	_, errIdx := isCC(tpdu)
@@ -398,11 +398,11 @@ func (c *TOSIConn) handleDataError(tpdu []byte, errIdx uint8) (err error) {
 	// no DT or ED received, maybe it's an ER or DR
 	isER, _ := isER(tpdu)
 	if isER {
-		err = getERerror(tpdu)
+		err = getErrorER(tpdu)
 	}
 	isDR, _ := isDR(tpdu)
 	if isDR {
-		err = getDRerror(tpdu)
+		err = getErrorDR(tpdu)
 	}
 	if (isDR) || (isER) {
 		c.Close()

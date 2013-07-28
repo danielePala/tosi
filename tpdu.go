@@ -533,7 +533,7 @@ func isDR(incoming []byte) (found bool, tlen uint8) {
 }
 
 // return info about the disconnection request
-func getDRerror(tpdu []byte) (e error) {
+func getErrorDR(tpdu []byte) (e error) {
 	drReason := map[byte]string{
 		0x00: "Reason not specified",
 		0x01: "Congestion at TSAP",
@@ -594,7 +594,7 @@ func isER(incoming []byte) (found bool, tlen uint8) {
 }
 
 // return info about the error occurred
-func getERerror(tpdu []byte) (e error) {
+func getErrorER(tpdu []byte) (e error) {
 	erCause := map[byte]string{
 		0x00: "Reason not specified",
 		0x01: "Invalid parameter code",
