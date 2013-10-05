@@ -512,7 +512,7 @@ func (a *TOSIAddr) String() string {
 // which must be "tosi", "tosi4" or "tosi6". The tcp part must be a valid
 // TCP address of the form host:port, as in "127.0.0.1:80", or just an IP address
 // followed by ':', as in "127.0.0.1:". A literal IPv6 host address must be
-// enclosed in square brackets, as in "[::]:80". tsel is the "trasport selector",
+// enclosed in square brackets, as in "[::]:80". tsel is the "transport selector",
 // which can be an arbitrary sequence of bytes. Thus "10.20.30.40:80:hello" is a
 // valid address. If no TCP port is specified, as in "10.20.30.40::hello", it
 // defaults to 102. The tsel parameter is optional, thus "10.20.30.40:80:"
