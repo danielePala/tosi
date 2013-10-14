@@ -580,7 +580,11 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 			if data != nil {
 				userData = data(cv.userData)
 			}
-			return crReply(l, buf, userData, tcp)
+			tosi, err := crReply(*l.addr, buf, userData, *tcp)
+			if data == nil {
+				tosi.userData.readBuf = cv.userData
+			}
+			return &tosi, err
 		}
 		if err == nil {
 			// reply with an ER
@@ -597,15 +601,15 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 }
 
 // parse a CR, handling errors and sending a CC in response.
-func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) {
+func crReply(addr TOSIAddr, tpdu, data []byte, t net.TCPConn) (TOSIConn, error) {
 	var reply []byte
 	var repCv connVars
-	valid, erBuf := validateCR(tpdu, l.(*TOSIListener).addr.TSel)
+	valid, erBuf := validateCR(tpdu, addr.TSel)
 	cv := getConnVars(tpdu)
 	if valid {
 		// reply with a CC
 		repCv.locTsel = cv.locTsel
-		repCv.remTsel = l.(*TOSIListener).addr.TSel
+		repCv.remTsel = addr.TSel
 		if cv.prefTpduSize == nil {
 			repCv.tpduSize = cv.tpduSize
 		}
@@ -622,20 +626,20 @@ func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) 
 		// reply with an ER
 		reply = tpkt(er(cv.srcRef[:], erParamVal, erBuf))
 	}
-	_, err := writePacket(tcp.(*net.TCPConn), reply)
+	_, err := writePacket(&t, reply)
 	if valid && (err == nil) {
 		// connection established
 		// NOTE: in reply to our CC, we may also receive
 		// an ER or DR. We don't check this now, but leave
 		// it to the Read function.
 		var tcpAddr *net.TCPAddr
-		tcpAddr = tcp.RemoteAddr().(*net.TCPAddr)
+		tcpAddr = t.RemoteAddr().(*net.TCPAddr)
 		raddr := TOSIAddr{
 			TCPAddr: *tcpAddr,
 			TSel:    cv.locTsel}
-		return &TOSIConn{
-			tcpConn:      *tcp.(*net.TCPConn),
-			laddr:        *l.(*TOSIListener).addr,
+		return TOSIConn{
+			tcpConn:      t,
+			laddr:        addr,
 			raddr:        raddr,
 			MaxTpduSize:  int(getMaxTpduSize(cv)),
 			srcRef:       repCv.srcRef,
@@ -643,11 +647,11 @@ func crReply(l net.Listener, tpdu, data []byte, tcp net.Conn) (net.Conn, error) 
 			userData:     userData{readBuf: cv.userData},
 			UseExpedited: cv.options > 0}, nil
 	}
-	tcp.Close()
+	t.Close()
 	if err == nil {
 		err = errors.New("received an invalid CR")
 	}
-	return nil, err
+	return TOSIConn{}, err
 }
 
 // Close stops listening on the TOSI address.
