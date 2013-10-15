@@ -644,7 +644,6 @@ func crReply(addr TOSIAddr, tpdu, data []byte, t net.TCPConn) (TOSIConn, error) 
 			MaxTpduSize:  int(getMaxTpduSize(cv)),
 			srcRef:       repCv.srcRef,
 			dstRef:       cv.srcRef,
-			userData:     userData{readBuf: cv.userData},
 			UseExpedited: cv.options > 0}, nil
 	}
 	t.Close()
