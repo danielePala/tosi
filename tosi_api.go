@@ -583,6 +583,7 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
 			tosi, err := crReply(*l.addr, buf, userData, *tcp)
 			if data == nil {
 				tosi.userData.readBuf = cv.userData
+				tosi.userData.endOfTSDU = true;
 			}
 			return &tosi, err
 		}
