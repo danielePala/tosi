@@ -137,7 +137,7 @@ func tosiServerRead5bytesIn(t *testing.T) {
 	// listen for connections
 	conn, err := listener.AcceptTOSI(func(b []byte) []byte { return b })
 	checkErrorIn(err, t)
-	if conn.(*tosi.TOSIConn).UseExpedited == true {
+	if conn.UseExpedited == true {
 		t.Log("Expedited service available but not requested")
 		t.FailNow()
 	}

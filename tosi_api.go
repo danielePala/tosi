@@ -558,7 +558,7 @@ func (l *TOSIListener) Accept() (net.Conn, error) {
 // should produce initial data to be sent during connection establishment,
 // taking as input the data received from the caller (if present). In fact,
 // RFC 1006 allows for the exchange of user data during connection establishment.
-func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (net.Conn, error) {
+func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (*TOSIConn, error) {
 	// listen for TCP connections
 	tcp, err := l.tcpListener.AcceptTCP()
 	if err != nil {

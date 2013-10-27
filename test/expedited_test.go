@@ -142,12 +142,12 @@ func tosiServerRead2bytesED(t *testing.T) {
 	// listen for connections
 	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if conn.(*tosi.TOSIConn).UseExpedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
 	buf := make([]byte, 100)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 2 {
 		t.Log("Wrong data size")
@@ -181,12 +181,12 @@ func tosiServerReadMaxED(t *testing.T) {
 	// listen for connections
 	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if conn.(*tosi.TOSIConn).UseExpedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
 	buf := make([]byte, 16)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 16 {
 		t.Log("Wrong data size")
@@ -220,12 +220,12 @@ func tosiServerRead1byteED(t *testing.T) {
 	// listen for connections
 	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if conn.(*tosi.TOSIConn).UseExpedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
 	buf := make([]byte, 1)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
@@ -243,7 +243,7 @@ func tosiServerRead1byteED(t *testing.T) {
 		t.Log("Wrong EndOfTSDU indication")
 		t.FailNow()
 	}
-	read, err = conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err = conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
@@ -277,12 +277,12 @@ func tosiServerReadMaxED2(t *testing.T) {
 	// listen for connections
 	conn, err := listener.AcceptTOSI(nil)
 	checkErrorED(err, t)
-	if conn.(*tosi.TOSIConn).UseExpedited == false {
+	if conn.UseExpedited == false {
 		t.Log("Expedited service not available")
 		t.FailNow()
 	}
 	buf := make([]byte, 16)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 16 {
 		t.Log("Wrong data size")
@@ -301,7 +301,7 @@ func tosiServerReadMaxED2(t *testing.T) {
 		t.FailNow()
 	}
 	buf = make([]byte, 11)
-	read, err = conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err = conn.ReadTOSI(buf)
 	checkErrorED(err, t)
 	if read.N != 11 {
 		t.Log("Wrong data size")
