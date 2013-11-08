@@ -547,7 +547,7 @@ func isDR(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, drID, drMinLen)
 }
 
-// RemoteError represents errors detected by the remote endopint.
+// RemoteError represents errors detected by the remote endpoint.
 type RemoteError struct {
 	msg  string // description of error
 	Info []byte // additional information about the error
