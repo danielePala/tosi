@@ -26,7 +26,6 @@ package tosi
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 const (
@@ -89,6 +88,22 @@ const (
 	eotIdx   = 2    // index of the EOT field
 	nrEot    = 0x80 // EOT option selection
 	nrNonEot = 0x00 // non-EOT option selection
+)
+
+var (
+	drReason = map[byte]string{
+		0x00: "Disconnect Request: Reason not specified",
+		0x01: "Disconnect Request: Congestion at TSAP",
+		0x02: "Disconnect Request: Session entity not attached to TSAP",
+		0x03: "Disconnect Request: Address unknown",
+	}
+
+	erCause = map[byte]string{
+		0x00: "TPDU Error: Reason not specified",
+		0x01: "TPDU Error: Invalid parameter code",
+		0x02: "TPDU Error: Invalid TPDU type",
+		0x03: "TPDU Error: Invalid parameter value",
+	}
 )
 
 // variables associated with a connection negotiation
@@ -532,19 +547,23 @@ func isDR(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, drID, drMinLen)
 }
 
+// RemoteError represents errors detected by the remote endopint.
+type RemoteError struct {
+	msg  string // description of error
+	Info []byte // additional information about the error
+}
+
+func (err *RemoteError) Error() string {
+	return err.msg
+}
+
 // return info about the disconnection request
-func getErrorDR(tpdu []byte) (e error) {
-	drReason := map[byte]string{
-		0x00: "Reason not specified",
-		0x01: "Congestion at TSAP",
-		0x02: "Session entity not attached to TSAP",
-		0x03: "Address unknown",
-	}
+func getErrorDR(tpdu []byte) error {
+	e := RemoteError{msg: drReason[tpdu[drReasonIdx]]}
 	if len(tpdu) > drInfoIdx {
-		return fmt.Errorf("DR - reason: %v, info: %v",
-			drReason[tpdu[drReasonIdx]], tpdu[drInfoIdx:])
+		e.Info = tpdu[drInfoIdx:]
 	}
-	return fmt.Errorf("DR - reason: %v", drReason[tpdu[drReasonIdx]])
+	return &e
 }
 
 // returns the maximum TPDU size for a connection.
@@ -594,18 +613,12 @@ func isER(incoming []byte) (found bool, tlen uint8) {
 }
 
 // return info about the error occurred
-func getErrorER(tpdu []byte) (e error) {
-	erCause := map[byte]string{
-		0x00: "Reason not specified",
-		0x01: "Invalid parameter code",
-		0x02: "Invalid TPDU type",
-		0x03: "Invalid parameter value",
-	}
+func getErrorER(tpdu []byte) error {
+	e := RemoteError{msg: erCause[tpdu[erCauseIdx]]}
 	if len(tpdu) > erInvIdx {
-		return fmt.Errorf("ER - cause: %v, invalid TPDU: %v",
-			erCause[tpdu[erCauseIdx]], tpdu[erInvIdx:])
+		e.Info = tpdu[erInvIdx:]
 	}
-	return fmt.Errorf("ER - cause: %v", erCause[tpdu[erCauseIdx]])
+	return &e
 }
 
 /* DT - Data Transfer */
