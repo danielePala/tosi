@@ -1,7 +1,7 @@
 /*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
- This file is part of
+ This file is part of tosi.
 
  tosi is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
