@@ -1,7 +1,7 @@
 /*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
- This file is part of tosi.
+ This file is part of 
 
  tosi is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  GNU General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with tosi.  If not, see <http://www.gnu.org/licenses/>.
+ along with   If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"testing"
 	"time"
-	"tosi"
 )
 
 // Test 1
@@ -34,12 +33,12 @@ func TestWrite5bytesIn(t *testing.T) {
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
-	opt := tosi.DialOpt{Data: data}
-	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
+	opt := DialOpt{Data: data}
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorIn(err, t)
 	if conn.UseExpedited == true {
 		t.Log("Expedited service available but not requested")
@@ -73,12 +72,12 @@ func TestWrite35bytesIn(t *testing.T) {
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := make([]byte, 35)
-	opt := tosi.DialOpt{Data: data}
-	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
+	opt := DialOpt{Data: data}
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorIn(err, t)
 	if conn.UseExpedited == true {
 		t.Log("Expedited service available but not requested")
@@ -112,12 +111,12 @@ func TestWrite5bytes(t *testing.T) {
 	go tosiServerRead5bytes(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
-	opt := tosi.DialOpt{Data: data}
-	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
+	opt := DialOpt{Data: data}
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorIn(err, t)
 	if conn.UseExpedited == true {
 		t.Log("Expedited service available but not requested")
@@ -130,9 +129,9 @@ func TestWrite5bytes(t *testing.T) {
 
 // a tosi server reading 5 bytes of initial data. No fault is expected.
 func tosiServerRead5bytesIn(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorIn(err, t)
 	// listen for connections
 	conn, err := listener.AcceptTOSI(func(b []byte) []byte { return b })
@@ -150,15 +149,15 @@ func tosiServerRead5bytesIn(t *testing.T) {
 
 // a tosi server reading 5 bytes. No fault is expected.
 func tosiServerRead5bytes(t *testing.T) {
-        tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+        tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
         checkErrorDT(err, t)
-        listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+        listener, err := ListenTOSI("tosi", tosiAddr)
         checkErrorDT(err, t)
         // listen for connections
         conn, err := listener.Accept()
         checkErrorDT(err, t)
         buf := make([]byte, 100)
-        read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+        read, err := conn.(*TOSIConn).ReadTOSI(buf)
         checkErrorDT(err, t)
         if read.N != 5 {
                 t.Log("Wrong data size")

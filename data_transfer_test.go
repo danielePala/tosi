@@ -1,7 +1,7 @@
 /*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
- This file is part of tosi.
+ This file is part of 
 
  tosi is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  GNU General Public License for more details.
 
  You should have received a copy of the GNU General Public License
- along with tosi.  If not, see <http://www.gnu.org/licenses/>.
+ along with   If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"testing"
 	"time"
-	"tosi"
 )
 
 const (
@@ -41,10 +40,10 @@ func TestWrite2bytes(t *testing.T) {
 	go tosiServerRead2bytes(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	// try to connect
-	conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
+	conn, err := DialTOSI("tosi", nil, tosiAddr)
 	checkErrorDT(err, t)
 	_, err = conn.Write([]byte{0x01, 0x02})
 	checkErrorDT(err, t)
@@ -62,10 +61,10 @@ func TestWriteMax(t *testing.T) {
 	go tosiServerReadMax(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	// try to connect
-	conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
+	conn, err := DialTOSI("tosi", nil, tosiAddr)
 	checkErrorDT(err, t)
 	var buf [maxSduSize]byte
 	_, err = conn.Write(buf[:])
@@ -84,10 +83,10 @@ func TestWrite2bytes2(t *testing.T) {
 	go tosiServerRead1byte(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	// try to connect
-	conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
+	conn, err := DialTOSI("tosi", nil, tosiAddr)
 	checkErrorDT(err, t)
 	_, err = conn.Write([]byte{0x01, 0x02})
 	checkErrorDT(err, t)
@@ -106,10 +105,10 @@ func TestWriteMax2(t *testing.T) {
 	go tosiServerReadMax2(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	// try to connect
-	conn, err := tosi.DialTOSI("tosi", nil, tosiAddr)
+	conn, err := DialTOSI("tosi", nil, tosiAddr)
 	checkErrorDT(err, t)
 	var buf [maxSduSize + 1]byte
 	buf[maxSduSize] = 0x4
@@ -129,11 +128,11 @@ func TestWriteCustom(t *testing.T) {
 	go tosiServerReadCustom(t)
 	// wait for server to come up
 	time.Sleep(time.Second)
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	// try to connect
-	opt := tosi.DialOpt{MaxTPDUSize: customTpduSize}
-	conn, err := tosi.DialOptTOSI("tosi", nil, tosiAddr, opt)
+	opt := DialOpt{MaxTPDUSize: customTpduSize}
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorDT(err, t)
 	var buf [customSduSize + 1]byte
 	buf[customSduSize] = 0x33
@@ -147,15 +146,15 @@ func TestWriteCustom(t *testing.T) {
 
 // a tosi server reading 2 bytes. No fault is expected.
 func tosiServerRead2bytes(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorDT(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
 	checkErrorDT(err, t)
 	buf := make([]byte, 100)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != 2 {
 		t.Log("Wrong data size")
@@ -182,9 +181,9 @@ func tosiServerRead2bytes(t *testing.T) {
 
 // a tosi server reading maxSduSize bytes. No fault is expected.
 func tosiServerReadMax(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorDT(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
@@ -209,15 +208,15 @@ func tosiServerReadMax(t *testing.T) {
 
 // a tosi server reading 1 byte for two times. No fault is expected.
 func tosiServerRead1byte(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorDT(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
 	checkErrorDT(err, t)
 	buf := make([]byte, 1)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
@@ -235,7 +234,7 @@ func tosiServerRead1byte(t *testing.T) {
 		t.Log("Wrong EndOfTSDU indication")
 		t.FailNow()
 	}
-	read, err = conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err = conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
@@ -262,15 +261,15 @@ func tosiServerRead1byte(t *testing.T) {
 
 // a tosi server reading maxSduSize+1 bytes. No fault is expected.
 func tosiServerReadMax2(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorDT(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
 	checkErrorDT(err, t)
 	buf := make([]byte, maxSduSize)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != maxSduSize {
 		t.Log("Wrong data size")
@@ -289,7 +288,7 @@ func tosiServerReadMax2(t *testing.T) {
 		t.FailNow()
 	}
 	buf = make([]byte, 10)
-	read, err = conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err = conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
@@ -316,15 +315,15 @@ func tosiServerReadMax2(t *testing.T) {
 
 // a tosi server reading customSduSize+1 bytes. No fault is expected.
 func tosiServerReadCustom(t *testing.T) {
-	tosiAddr, err := tosi.ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
-	listener, err := tosi.ListenTOSI("tosi", tosiAddr)
+	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorDT(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
 	checkErrorDT(err, t)
 	buf := make([]byte, customSduSize)
-	read, err := conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err := conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != customSduSize {
 		t.Log("Wrong data size")
@@ -343,7 +342,7 @@ func tosiServerReadCustom(t *testing.T) {
 		t.FailNow()
 	}
 	buf = make([]byte, 10)
-	read, err = conn.(*tosi.TOSIConn).ReadTOSI(buf)
+	read, err = conn.(*TOSIConn).ReadTOSI(buf)
 	checkErrorDT(err, t)
 	if read.N != 1 {
 		t.Log("Wrong data size")
