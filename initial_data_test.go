@@ -1,7 +1,7 @@
 /*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
- This file is part of 
+ This file is part of
 
  tosi is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -104,7 +104,7 @@ func TestWrite35bytesIn(t *testing.T) {
 }
 
 // Test 3
-// test initial data write with 5 bytes. The server should read this data with 
+// test initial data write with 5 bytes. The server should read this data with
 // a normal ReadTOSI call. No error should occur.
 func TestWrite5bytes(t *testing.T) {
 	// start a server
@@ -149,37 +149,37 @@ func tosiServerRead5bytesIn(t *testing.T) {
 
 // a tosi server reading 5 bytes. No fault is expected.
 func tosiServerRead5bytes(t *testing.T) {
-        tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-        checkErrorDT(err, t)
-        listener, err := ListenTOSI("tosi", tosiAddr)
-        checkErrorDT(err, t)
-        // listen for connections
-        conn, err := listener.Accept()
-        checkErrorDT(err, t)
-        buf := make([]byte, 100)
-        read, err := conn.(*TOSIConn).ReadTOSI(buf)
-        checkErrorDT(err, t)
-        if read.N != 5 {
-                t.Log("Wrong data size")
-                t.FailNow()
-        }
-        if !bytes.Equal(buf[:5], []byte{0x01, 0xff, 0x66, 0x93, 0x20}) {
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	checkErrorDT(err, t)
+	listener, err := ListenTOSI("tosi", tosiAddr)
+	checkErrorDT(err, t)
+	// listen for connections
+	conn, err := listener.Accept()
+	checkErrorDT(err, t)
+	buf := make([]byte, 100)
+	read, err := conn.(*TOSIConn).ReadTOSI(buf)
+	checkErrorDT(err, t)
+	if read.N != 5 {
+		t.Log("Wrong data size")
+		t.FailNow()
+	}
+	if !bytes.Equal(buf[:5], []byte{0x01, 0xff, 0x66, 0x93, 0x20}) {
 		t.Log("Wrong data values")
-                t.FailNow()
-        }
-        if read.Expedited == true {
-                t.Log("Expedited data received")
-                t.FailNow()
-        }
+		t.FailNow()
+	}
+	if read.Expedited == true {
+		t.Log("Expedited data received")
+		t.FailNow()
+	}
 	if read.EndOfTSDU == false {
-                t.Log("Wrong EndOfTSDU indication")
-                t.FailNow()
-        }
-        // close connection
-        err = conn.Close()
-        checkErrorIn(err, t)
-        err = listener.Close()
-        checkErrorIn(err, t)
+		t.Log("Wrong EndOfTSDU indication")
+		t.FailNow()
+	}
+	// close connection
+	err = conn.Close()
+	checkErrorIn(err, t)
+	err = listener.Close()
+	checkErrorIn(err, t)
 }
 
 // check for unexpected errors

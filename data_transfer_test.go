@@ -1,7 +1,7 @@
 /*
  Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
 
- This file is part of 
+ This file is part of
 
  tosi is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	maxSduSize     = 65528
-	customTpduSize = 512
-	customSduSize  = 509
+	maxSduSize      = 65528
+	customTpduSize  = 512
+	customTpduSize2 = 4096
 )
 
 // Test 1
@@ -124,8 +124,9 @@ func TestWriteMax2(t *testing.T) {
 // test data write with custom SDU size (512 bytes). No error should occur.
 // the server has a read buffer of exactly maxSduSize bytes.
 func TestWriteCustom(t *testing.T) {
+	customSduSize := customTpduSize - 3
 	// start a server
-	go tosiServerReadCustom(t)
+	go tosiServerReadCustom(t, customTpduSize)
 	// wait for server to come up
 	time.Sleep(time.Second)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
@@ -134,9 +135,34 @@ func TestWriteCustom(t *testing.T) {
 	opt := DialOpt{MaxTPDUSize: customTpduSize}
 	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
 	checkErrorDT(err, t)
-	var buf [customSduSize + 1]byte
+	var buf [customTpduSize]byte
 	buf[customSduSize] = 0x33
-	_, err = conn.Write(buf[:])
+	_, err = conn.Write(buf[:customSduSize+1])
+	checkErrorDT(err, t)
+	time.Sleep(time.Second)
+	// close connection
+	err = conn.Close()
+	checkErrorDT(err, t)
+}
+
+// Test 6
+// test data write with custom SDU size (4096 bytes). No error should occur.
+// the server has a read buffer of exactly maxSduSize bytes.
+func TestWriteCustom2(t *testing.T) {
+	customSduSize := customTpduSize2 - 3
+	// start a server
+	go tosiServerReadCustom(t, customTpduSize2)
+	// wait for server to come up
+	time.Sleep(time.Second)
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	checkErrorDT(err, t)
+	// try to connect
+	opt := DialOpt{MaxTPDUSize: customTpduSize2}
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
+	checkErrorDT(err, t)
+	var buf [customTpduSize2]byte
+	buf[customSduSize] = 0x33
+	_, err = conn.Write(buf[:customSduSize+1])
 	checkErrorDT(err, t)
 	time.Sleep(time.Second)
 	// close connection
@@ -314,7 +340,8 @@ func tosiServerReadMax2(t *testing.T) {
 }
 
 // a tosi server reading customSduSize+1 bytes. No fault is expected.
-func tosiServerReadCustom(t *testing.T) {
+func tosiServerReadCustom(t *testing.T, size int) {
+	customSduSize := size - 3
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorDT(err, t)
 	listener, err := ListenTOSI("tosi", tosiAddr)
