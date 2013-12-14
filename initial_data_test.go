@@ -32,7 +32,7 @@ func TestWrite5bytesIn(t *testing.T) {
 	// start a server
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
@@ -71,7 +71,7 @@ func TestWrite35bytesIn(t *testing.T) {
 	// start a server
 	go tosiServerRead5bytesIn(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
@@ -110,7 +110,7 @@ func TestWrite5bytes(t *testing.T) {
 	// start a server
 	go tosiServerRead5bytes(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorIn(err, t)
 	// try to connect with initial data
@@ -150,15 +150,15 @@ func tosiServerRead5bytesIn(t *testing.T) {
 // a tosi server reading 5 bytes. No fault is expected.
 func tosiServerRead5bytes(t *testing.T) {
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
+	checkErrorIn(err, t)
 	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
+	checkErrorIn(err, t)
 	// listen for connections
 	conn, err := listener.Accept()
-	checkErrorDT(err, t)
+	checkErrorIn(err, t)
 	buf := make([]byte, 100)
 	read, err := conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
+	checkErrorIn(err, t)
 	if read.N != 5 {
 		t.Log("Wrong data size")
 		t.FailNow()

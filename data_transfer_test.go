@@ -27,384 +27,216 @@ import (
 )
 
 const (
-	maxSduSize      = 65528
-	customTpduSize  = 512
-	customTpduSize2 = 4096
+	maxSduSize = 65528
 )
 
 // Test 1
 // test data write with 2 bytes. No error should occur.
-// the server has a read buffer larger than 2 bytes.
+// the server has a read buffer of 2 bytes.
 func TestWrite2bytes(t *testing.T) {
-	// start a server
-	go tosiServerRead2bytes(t)
-	// wait for server to come up
-	time.Sleep(time.Second)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	conn, err := DialTOSI("tosi", nil, tosiAddr)
-	checkErrorDT(err, t)
-	_, err = conn.Write([]byte{0x01, 0x02})
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
+	testPayloads(t, DialOpt{}, []byte{0x01, 0x02})
 }
 
 // Test 2
 // test data write with maximum SDU size (default: 65528). No error should occur.
 // the server has a read buffer of exactly maxSduSize bytes.
 func TestWriteMax(t *testing.T) {
-	// start a server
-	go tosiServerReadMax(t)
-	// wait for server to come up
-	time.Sleep(time.Second)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	conn, err := DialTOSI("tosi", nil, tosiAddr)
-	checkErrorDT(err, t)
-	var buf [maxSduSize]byte
-	_, err = conn.Write(buf[:])
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
+	testPayloads(t, DialOpt{}, make([]byte, maxSduSize))
 }
 
 // Test 3
 // test data write with 2 bytes. No error should occur.
-// the server has a read buffer of 1 byte, and performs two reads.
+// the server performs two reads.
 func TestWrite2bytes2(t *testing.T) {
-	// start a server
-	go tosiServerRead1byte(t)
-	// wait for server to come up
-	time.Sleep(time.Second)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	conn, err := DialTOSI("tosi", nil, tosiAddr)
-	checkErrorDT(err, t)
-	_, err = conn.Write([]byte{0x01, 0x02})
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
+	testPayloads(t, DialOpt{}, []byte{0x01}, []byte{0x02})
 }
 
 // Test 4
 // test data write with more than maximum SDU size (default: 65528).
 // No error should occur.
-// the server has a read buffer of exactly maxSduSize bytes.
 func TestWriteMax2(t *testing.T) {
-	// start a server
-	go tosiServerReadMax2(t)
-	// wait for server to come up
-	time.Sleep(time.Second)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	conn, err := DialTOSI("tosi", nil, tosiAddr)
-	checkErrorDT(err, t)
-	var buf [maxSduSize + 1]byte
-	buf[maxSduSize] = 0x4
-	_, err = conn.Write(buf[:])
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
+	testPayloads(t, DialOpt{}, make([]byte, maxSduSize), []byte{0x04})
 }
 
 // Test 5
-// test data write with custom SDU size (512 bytes). No error should occur.
-// the server has a read buffer of exactly maxSduSize bytes.
+// test data write with custom TPDU size (512 bytes). No error should occur.
 func TestWriteCustom(t *testing.T) {
-	customSduSize := customTpduSize - 3
-	// start a server
-	go tosiServerReadCustom(t, customTpduSize)
-	// wait for server to come up
-	time.Sleep(time.Second)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	opt := DialOpt{MaxTPDUSize: customTpduSize}
-	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
-	checkErrorDT(err, t)
-	var buf [customTpduSize]byte
-	buf[customSduSize] = 0x33
-	_, err = conn.Write(buf[:customSduSize+1])
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
+	customTpduSze := 512
+	opt := DialOpt{MaxTPDUSize: customTpduSze}
+	testPayloads(t, opt, make([]byte, customTpduSze-3), []byte{0x33})
 }
 
 // Test 6
-// test data write with custom SDU size (4096 bytes). No error should occur.
-// the server has a read buffer of exactly maxSduSize bytes.
+// test data write with custom TPDU size (4096 bytes). No error should occur.
 func TestWriteCustom2(t *testing.T) {
-	customSduSize := customTpduSize2 - 3
+	customTpduSze := 4096
+	opt := DialOpt{MaxTPDUSize: customTpduSze}
+	testPayloads(t, opt, make([]byte, customTpduSze-3), []byte{0x33})
+}
+
+// Test 7
+// test data write with DR. The server should close the connection.
+func TestWriteDR(t *testing.T) {
 	// start a server
-	go tosiServerReadCustom(t, customTpduSize2)
+	go tosiServerFault(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	// try to connect
-	opt := DialOpt{MaxTPDUSize: customTpduSize2}
-	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
-	checkErrorDT(err, t)
-	var buf [customTpduSize2]byte
-	buf[customSduSize] = 0x33
-	_, err = conn.Write(buf[:customSduSize+1])
-	checkErrorDT(err, t)
-	time.Sleep(time.Second)
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-}
-
-// a tosi server reading 2 bytes. No fault is expected.
-func tosiServerRead2bytes(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
-	// listen for connections
-	conn, err := listener.Accept()
-	checkErrorDT(err, t)
-	buf := make([]byte, 100)
-	read, err := conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != 2 {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf[:2], []byte{0x01, 0x02}) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == false {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-	err = listener.Close()
-	checkErrorDT(err, t)
-}
-
-// a tosi server reading maxSduSize bytes. No fault is expected.
-func tosiServerReadMax(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
-	// listen for connections
-	conn, err := listener.Accept()
-	checkErrorDT(err, t)
-	buf := make([]byte, maxSduSize)
-	n, err := conn.Read(buf)
-	checkErrorDT(err, t)
-	if n != maxSduSize {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf, make([]byte, maxSduSize)) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-	err = listener.Close()
-	checkErrorDT(err, t)
-}
-
-// a tosi server reading 1 byte for two times. No fault is expected.
-func tosiServerRead1byte(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
-	// listen for connections
-	conn, err := listener.Accept()
-	checkErrorDT(err, t)
-	buf := make([]byte, 1)
-	read, err := conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != 1 {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf[:], []byte{0x01}) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == true {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	read, err = conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != 1 {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf[:], []byte{0x02}) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == false {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-	err = listener.Close()
-	checkErrorDT(err, t)
-}
-
-// a tosi server reading maxSduSize+1 bytes. No fault is expected.
-func tosiServerReadMax2(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
-	// listen for connections
-	conn, err := listener.Accept()
-	checkErrorDT(err, t)
-	buf := make([]byte, maxSduSize)
-	read, err := conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != maxSduSize {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf, make([]byte, maxSduSize)) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == true {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	buf = make([]byte, 10)
-	read, err = conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != 1 {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf[:1], []byte{0x04}) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == false {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-	err = listener.Close()
-	checkErrorDT(err, t)
-}
-
-// a tosi server reading customSduSize+1 bytes. No fault is expected.
-func tosiServerReadCustom(t *testing.T, size int) {
-	customSduSize := size - 3
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
-	checkErrorDT(err, t)
-	listener, err := ListenTOSI("tosi", tosiAddr)
-	checkErrorDT(err, t)
-	// listen for connections
-	conn, err := listener.Accept()
-	checkErrorDT(err, t)
-	buf := make([]byte, customSduSize)
-	read, err := conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != customSduSize {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf, make([]byte, customSduSize)) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == true {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	buf = make([]byte, 10)
-	read, err = conn.(*TOSIConn).ReadTOSI(buf)
-	checkErrorDT(err, t)
-	if read.N != 1 {
-		t.Log("Wrong data size")
-		t.FailNow()
-	}
-	if !bytes.Equal(buf[:1], []byte{0x33}) {
-		t.Log("Wrong data values")
-		t.FailNow()
-	}
-	if read.Expedited == true {
-		t.Log("Expedited data received")
-		t.FailNow()
-	}
-	if read.EndOfTSDU == false {
-		t.Log("Wrong EndOfTSDU indication")
-		t.FailNow()
-	}
-	// close connection
-	err = conn.Close()
-	checkErrorDT(err, t)
-	err = listener.Close()
-	checkErrorDT(err, t)
-}
-
-// check for unexpected errors
-func checkErrorDT(err error, t *testing.T) {
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
 	}
+	// try to connect
+	conn, err := DialTOSI("tosi", nil, tosiAddr)
+	defer cleanup(t, conn, nil)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	payload := tpkt(dr(*conn, 0x01, []byte{0x02}))
+	_, err = writePacket(&conn.tcpConn, payload) // send a DR
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	time.Sleep(time.Millisecond)
 }
 
-// check for expected errors
-func checkWantedErrorDT(err error, t *testing.T) {
-	if err == nil {
+// send a given set of payloads
+func testPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
+	var allPayloads []byte
+	for _, payload := range payloads {
+		allPayloads = append(allPayloads, payload...)
+	}
+	// start a server
+	go tosiServerReadPayloads(t, payloads...)
+	// wait for server to come up
+	time.Sleep(time.Millisecond)
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	if err != nil {
+		t.Log(err.Error())
 		t.FailNow()
+	}
+	// try to connect
+	conn, err := DialOptTOSI("tosi", nil, tosiAddr, opt)
+	defer cleanup(t, conn, nil)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	_, err = conn.Write(allPayloads)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	time.Sleep(time.Millisecond)
+}
+
+// a tosi server reading arbitrary payloads. No fault is expected.
+func tosiServerReadPayloads(t *testing.T, payloads ...[]byte) {
+	var conn *TOSIConn
+	var listener *TOSIListener
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	listener, err = ListenTOSI("tosi", tosiAddr)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	// listen for connections
+	conn, err = listener.AcceptTOSI(nil)
+	defer cleanup(t, conn, listener)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	for n, payload := range payloads {
+		size := len(payload)
+		end := n == (len(payloads) - 1)
+		buf := make([]byte, size)
+		read, err := conn.ReadTOSI(buf)
+		if err != nil {
+			t.Log(err.Error())
+			t.FailNow()
+		}
+		if read.N != size {
+			t.Log("Wrong data size")
+			t.FailNow()
+		}
+		if !bytes.Equal(buf[:], payload) {
+			t.Log("Wrong data values")
+			t.FailNow()
+		}
+		if read.Expedited == true {
+			t.Log("Expedited data received")
+			t.FailNow()
+		}
+		if read.EndOfTSDU != end {
+			t.Logf("Wrong EndOfTSDU indication")
+			t.FailNow()
+		}
+	}
+}
+
+// a tosi server reading 100 bytes. A DR is expected from client.
+func tosiServerFault(t *testing.T) {
+	var conn *TOSIConn
+	var listener *TOSIListener
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	listener, err = ListenTOSI("tosi", tosiAddr)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	// listen for connections
+	conn, err = listener.AcceptTOSI(nil)
+	if err != nil {
+		cleanup(t, conn, listener)
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	buf := make([]byte, 100)
+	_, err = conn.ReadTOSI(buf)
+	if err == nil {
+		cleanup(t, conn, listener)
+		t.FailNow()
+	}
+	switch err.(type) {
+	case *RemoteError:
+		ok := bytes.Equal(err.(*RemoteError).Info, []byte{0x02})
+		if (err.Error() != drReason[0x01]) || !ok {
+			t.Log(err.Error())
+			t.Fail()
+		}
+	default:
+		t.Log(err.Error())
+		t.Fail()
+	}
+	cleanup(t, nil, listener)
+}
+
+// a cleanup utility function
+func cleanup(t *testing.T, conn *TOSIConn, listener *TOSIListener) {
+	var err error
+	if conn != nil { // close connection
+		err = conn.Close()
+		if err != nil {
+			t.Log(err.Error())
+			t.Fail()
+		}
+	}
+	if listener != nil { // close listener
+		err = listener.Close()
+		if err != nil {
+			t.Log(err.Error())
+			t.Fail()
+		}
 	}
 }

@@ -21,6 +21,7 @@
 package tosi
 
 import (
+	"net"
 	"testing"
 	"time"
 )
@@ -31,7 +32,7 @@ func TestConn(t *testing.T) {
 	// start a server
 	go tosiServer(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkError(err, t)
 	// try to connect
@@ -49,7 +50,7 @@ func TestConnNoTsel(t *testing.T) {
 	// start a server
 	go tosiServerNoTsel(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::")
 	checkError(err, t)
 	// try to connect
@@ -65,9 +66,9 @@ func TestConnNoTsel(t *testing.T) {
 // Don't specify any tsel, while the server expects one. It should fail.
 func TestConnNoTselFail(t *testing.T) {
 	// start a server
-	go tosiServerWrongAddr(t)
+	go tosiServerWrongParam(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::")
 	checkError(err, t)
 	// try to connect
@@ -82,7 +83,7 @@ func TestConnLAddr(t *testing.T) {
 	// start a server
 	go tosiServer(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkError(err, t)
 	localTOSIAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1:10102:999")
@@ -99,9 +100,9 @@ func TestConnLAddr(t *testing.T) {
 // test connection establishment with wrong tsel. It should fail.
 func TestWrongAddr(t *testing.T) {
 	// start a server
-	go tosiServerWrongAddr(t)
+	go tosiServerWrongParam(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::10")
 	checkError(err, t)
 	// try to connect
@@ -148,6 +149,51 @@ func TestServerNilLaddr(t *testing.T) {
 	go tosiServerNilLaddr(t)
 }
 
+// Test 11
+// test connection establishment with no server listening. It should fail.
+func TestNoServer(t *testing.T) {
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::")
+	checkError(err, t)
+	// try to connect
+	_, err = DialTOSI("tosi", nil, tosiAddr)
+	checkWantedError(err, t)
+}
+
+// Test 12
+// test connection establishment with wrong srcRef. It should fail.
+func TestWrongSrcRef(t *testing.T) {
+	// start a server
+	go tosiServerWrongParam(t)
+	// wait for server to come up
+	time.Sleep(time.Millisecond)
+	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	checkError(err, t)
+	// try to connect
+	var cv connVars
+	cv.srcRef = [2]byte{0x00, 0x00} // wrong zero value
+	cv.remTsel = tosiAddr.TSel
+	_, err = dial("tosi", nil, tosiAddr, cv)
+	checkWantedError(err, t)
+}
+
+// Test 13
+// test connection establishment with wrong CR. It should fail.
+func TestWrongCR(t *testing.T) {
+	// start a server
+	go tosiServerWrongParam(t)
+	// wait for server to come up
+	time.Sleep(time.Millisecond)
+	tosiAddr, err := ResolveTOSIAddr("tosi4", "127.0.0.1::100")
+	checkError(err, t)
+	// try to connect
+	tcp, err := net.DialTCP("tcp4", nil, &tosiAddr.TCPAddr)
+	checkError(err, t)
+	_, err = writePacket(tcp, tpkt([]byte{0x00})) // send a wrong CR
+	checkError(err, t)
+	tcp.Close()
+	time.Sleep(time.Millisecond)
+}
+
 // a tosi server. No fault is expected.
 func tosiServer(t *testing.T) {
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
@@ -180,8 +226,8 @@ func tosiServerNoTsel(t *testing.T) {
 	checkError(err, t)
 }
 
-// a tosi server. A wrong tsel (or no tsel) is expected.
-func tosiServerWrongAddr(t *testing.T) {
+// a tosi server. A wrong Connection Request is expected.
+func tosiServerWrongParam(t *testing.T) {
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkError(err, t)
 	listener, err := ListenTOSI("tosi", tosiAddr)

@@ -375,6 +375,9 @@ func validateFixed(incoming, dstRef []byte, needVar bool) (bool, []byte) {
 	if !bytes.Equal(incoming[2:4], dstRef) {
 		return false, incoming[:4]
 	}
+	if bytes.Equal(incoming[4:6], []byte{0x00, 0x00}) {
+		return false, incoming[:6]
+	}
 	// calculate the length of fixed+variable part
 	fixVarLen := incoming[0] + 1 // add the Length Indicator size (1 byte)
 	userDataLen := len(incoming) - int(fixVarLen)
@@ -416,7 +419,7 @@ func validCRPrefTpduSize(vars []byte) bool {
 	}
 	cv := connVars{prefTpduSize: vars[2 : optLen+2]}
 	size := getMaxTpduSize(cv)
-	if size > defTpduSize {
+	if size < minTpduSize || size > defTpduSize {
 		return false // invalid size
 	}
 	return true
@@ -466,7 +469,7 @@ func validCCPrefTpduSize(vars []byte, crCv connVars, tpduSize bool) bool {
 	ccCv := connVars{prefTpduSize: vars[2 : optLen+2]}
 	ccSize := getMaxTpduSize(ccCv)
 	crSize := getMaxTpduSize(crCv)
-	if ccSize > crSize {
+	if ccSize > crSize || ccSize < minTpduSize {
 		return false // invalid size
 	}
 	if crCv.prefTpduSize == nil {
@@ -516,7 +519,8 @@ func validateED(incoming []byte) (valid bool, erBuf []byte) {
 
 /* DR - Disconnect Request */
 // the variable part of the DR TPDU can contain a parameter allowing
-// additional information related to the clearing of the connection
+// additional information related to the clearing of the connection.
+// This function is only used by test code.
 func dr(conn TOSIConn, reason byte, info []byte) (tpdu []byte) {
 	DST_REF := conn.dstRef[:]
 	SRC_REF := conn.srcRef[:]

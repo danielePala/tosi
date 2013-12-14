@@ -33,7 +33,7 @@ func TestWrite2bytesED(t *testing.T) {
 	// start a server
 	go tosiServerRead2bytesED(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
@@ -46,7 +46,7 @@ func TestWrite2bytesED(t *testing.T) {
 	}
 	_, err = conn.WriteTOSI([]byte{0x01, 0x02}, true)
 	checkErrorED(err, t)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	// close connection
 	err = conn.Close()
 	checkErrorED(err, t)
@@ -59,7 +59,7 @@ func TestWriteMaxED(t *testing.T) {
 	// start a server
 	go tosiServerReadMaxED(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
@@ -73,7 +73,7 @@ func TestWriteMaxED(t *testing.T) {
 	var buf [16]byte
 	_, err = conn.WriteTOSI(buf[:], true)
 	checkErrorED(err, t)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	// close connection
 	err = conn.Close()
 	checkErrorED(err, t)
@@ -86,7 +86,7 @@ func TestWrite2bytesED2(t *testing.T) {
 	// start a server
 	go tosiServerRead1byteED(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
@@ -99,7 +99,7 @@ func TestWrite2bytesED2(t *testing.T) {
 	}
 	_, err = conn.WriteTOSI([]byte{0x01, 0x02}, true)
 	checkErrorED(err, t)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	// close connection
 	err = conn.Close()
 	checkErrorED(err, t)
@@ -112,7 +112,7 @@ func TestWriteMaxED2(t *testing.T) {
 	// start a server
 	go tosiServerReadMaxED2(t)
 	// wait for server to come up
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
 	checkErrorED(err, t)
 	// try to connect
@@ -126,7 +126,7 @@ func TestWriteMaxED2(t *testing.T) {
 	var buf [27]byte
 	_, err = conn.WriteTOSI(buf[:], true)
 	checkErrorED(err, t)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond)
 	// close connection
 	err = conn.Close()
 	checkErrorED(err, t)

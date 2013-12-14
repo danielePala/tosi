@@ -133,7 +133,7 @@ func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) 
 	if len(cv.userData) > maxDataLen {
 		cv.userData = cv.userData[:maxDataLen]
 	}
-	if op.MaxTPDUSize > 0 && op.MaxTPDUSize < defTpduSize {
+	if op.MaxTPDUSize >= minTpduSize && op.MaxTPDUSize < defTpduSize {
 		tpduSizes := map[int]byte{128: 7, 256: 8, 512: 9,
 			1024: 10, 2048: 11}
 		switch op.MaxTPDUSize {
