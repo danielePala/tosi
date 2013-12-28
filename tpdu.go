@@ -551,19 +551,9 @@ func isDR(incoming []byte) (found bool, tlen uint8) {
 	return isType(incoming, drID, drMinLen)
 }
 
-// RemoteError represents errors detected by the remote endpoint.
-type RemoteError struct {
-	msg  string // description of error
-	Info []byte // additional information about the error
-}
-
-func (err *RemoteError) Error() string {
-	return err.msg
-}
-
 // return info about the disconnection request
 func getErrorDR(tpdu []byte) error {
-	e := RemoteError{msg: drReason[tpdu[drReasonIdx]]}
+	e := ProtocolError{msg: drReason[tpdu[drReasonIdx]]}
 	if len(tpdu) > drInfoIdx {
 		e.Info = tpdu[drInfoIdx:]
 	}
@@ -618,7 +608,7 @@ func isER(incoming []byte) (found bool, tlen uint8) {
 
 // return info about the error occurred
 func getErrorER(tpdu []byte) error {
-	e := RemoteError{msg: erCause[tpdu[erCauseIdx]]}
+	e := ProtocolError{msg: erCause[tpdu[erCauseIdx]]}
 	if len(tpdu) > erInvIdx {
 		e.Info = tpdu[erInvIdx:]
 	}

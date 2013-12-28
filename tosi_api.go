@@ -29,18 +29,17 @@ import (
 	"time"
 )
 
-const rfc1006port = "102" // Default TCP port used by TOSI servers
-
-var (
-	ErrBadAddress   = &ProtocolError{"invalid address"}
-	ErrBadNetwork   = &ProtocolError{"unknown network"}
-	ErrUnknownReply = &ProtocolError{"unknown reply from server"}
-	ErrBadTPKT      = &ProtocolError{"received an invalid TPKT"}
-	ErrBadCC        = &ProtocolError{"received an invalid CC"}
-	ErrBadED        = &ProtocolError{"received an invalid ED"}
-	ErrBadDT        = &ProtocolError{"received an invalid DT"}
-	ErrBadTPDU      = &ProtocolError{"received an invalid TPDU"}
-	ErrBadCR        = &ProtocolError{"received an invalid CR"}
+const (
+	RFC1006port     = "102" // Default TCP port used by TOSI servers
+	ErrBadAddress   = "invalid address"
+	ErrBadNetwork   = "unknown network"
+	ErrUnknownReply = "unknown reply from server"
+	ErrBadTPKT      = "received an invalid TPKT"
+	ErrBadCC        = "received an invalid CC"
+	ErrBadED        = "received an invalid ED"
+	ErrBadDT        = "received an invalid DT"
+	ErrBadTPDU      = "received an invalid TPDU"
+	ErrBadCR        = "received an invalid CR"
 )
 
 // TOSIConn is an implementation of the net.Conn interface
@@ -95,11 +94,12 @@ type TOSIListener struct {
 
 // ProtocolError represents TOSI protocol errors.
 type ProtocolError struct {
-	ErrorString string
+	msg  string // description of error
+	Info []byte // additional information about the error
 }
 
 func (err *ProtocolError) Error() string {
-	return err.ErrorString
+	return err.msg
 }
 
 // DialTOSI connects to the remote address raddr on the network net, which must
@@ -117,7 +117,7 @@ func DialTOSI(net string, loc, rem *TOSIAddr) (*TOSIConn, error) {
 // this size, it is trimmed.
 func DialOptTOSI(net string, loc, rem *TOSIAddr, op DialOpt) (*TOSIConn, error) {
 	if rem == nil {
-		return nil, ErrBadAddress
+		return nil, &ProtocolError{msg: ErrBadAddress}
 	}
 	// setup ISO connection vars
 	var cv connVars
@@ -155,7 +155,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 	TCPnet := tosiToTCPnet(tnet)
 	if TCPnet == "" {
 		// this check is needed by Go versions < 1.1
-		return nil, ErrBadNetwork
+		return nil, &ProtocolError{msg: ErrBadNetwork}
 	}
 	var tcpLaddr *net.TCPAddr
 	if laddr != nil {
@@ -175,16 +175,18 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 	}
 	// try to read a TPKT header as response
 	buf := make([]byte, tpktHlen)
-	_, err = readPacket(tcp, buf)
+	n, err := readPacket(tcp, buf)
+	buf = buf[:n]
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
 		// try to read a CC
 		tpdu := make([]byte, tlen-tpktHlen)
-		_, err = readPacket(tcp, tpdu)
+		n, err = readPacket(tcp, tpdu)
 		if err != nil {
 			tcp.Close()
 			return nil, err
 		}
+		tpdu = tpdu[:n]
 		isCC, _ := isCC(tpdu)
 		if isCC {
 			c, err := handleCc(tpdu, tcp, cv)
@@ -204,7 +206,7 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 	}
 	tcp.Close()
 	if err == nil {
-		err = ErrBadTPKT
+		err = &ProtocolError{msg: ErrBadTPKT}
 	}
 	return nil, err
 }
@@ -219,7 +221,7 @@ func handleCc(tpdu []byte, tcp *net.TCPConn, cv connVars) (*TOSIConn, error) {
 		reply := tpkt(er(cv.srcRef[:], erParamVal, erBuf))
 		writePacket(tcp, reply)
 		tcp.Close()
-		return nil, ErrBadCC
+		return nil, &ProtocolError{msg: ErrBadCC, Info: erBuf}
 	}
 	// all ok, connection established
 	repCv := getConnVars(tpdu)
@@ -248,7 +250,7 @@ func handleDialError(tpdu, srcRef []byte, tcp *net.TCPConn) (err error) {
 	if (!isDR) && (!isER) {
 		reply := tpkt(er(srcRef, erParamVal, tpdu[:errIdx]))
 		writePacket(tcp, reply)
-		err = ErrUnknownReply
+		err = &ProtocolError{msg: ErrUnknownReply, Info: tpdu[:errIdx]}
 	}
 	return
 }
@@ -280,20 +282,20 @@ func (c *TOSIConn) LocalAddr() net.Addr {
 	return &c.laddr
 }
 
-// Read from a TCP connection until the input buffer is full.
+// Read from a TCP connection until the input buffer is full or error occurs.
 func readPacket(c *net.TCPConn, buf []byte) (int, error) {
 	total := 0
 	for total < len(buf) {
 		n, err := c.Read(buf[total:])
-		total += n
 		if err != nil {
 			return total, err
 		}
+		total += n
 	}
 	return total, nil
 }
 
-// Write to a TCP connection a whole input buffer.
+// Write to a TCP connection a whole input buffer (if no error occurs).
 func writePacket(c *net.TCPConn, buf []byte) (int, error) {
 	total := 0
 	for total < len(buf) {
@@ -338,15 +340,17 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 	}
 	// read buffer empty, try to read a TPKT header
 	buf := make([]byte, tpktHlen)
-	_, err = readPacket(&c.tcpConn, buf)
+	n, err := readPacket(&c.tcpConn, buf)
+	buf = buf[:n]
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
 		// try to read a DT (or ED)
 		tpdu := make([]byte, tlen-tpktHlen)
-		_, err = readPacket(&c.tcpConn, tpdu)
+		n, err = readPacket(&c.tcpConn, tpdu)
 		if err != nil {
 			return read, err
 		}
+		tpdu = tpdu[:n]
 		isDT, errIdx := isDT(tpdu)
 		isED, _ := isED(tpdu)
 		if isDT {
@@ -361,7 +365,7 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 		err = c.handleDataError(tpdu, errIdx)
 	}
 	if err == nil {
-		err = ErrBadTPKT
+		err = &ProtocolError{msg: ErrBadTPKT}
 	}
 	return read, err
 }
@@ -370,10 +374,10 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateED(tpdu)
 	if !valid {
-		// we got an invalid ED
-		// reply with an ER
-		go writeEr(c, erBuf)
-		return 0, ErrBadED, false
+		// we got an invalid ED, reply with an ER
+		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
+		go writePacket(&c.tcpConn, reply)
+		return 0, &ProtocolError{msg: ErrBadED, Info: erBuf}, false
 	}
 	c.expedited = true
 	return c.handleData(b, tpdu)
@@ -383,10 +387,10 @@ func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
 func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateDT(tpdu, c.MaxTpduSize)
 	if !valid {
-		// we got an invalid DT
-		// reply with an ER
-		go writeEr(c, erBuf)
-		return 0, ErrBadDT, false
+		// we got an invalid DT, reply with an ER
+		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
+		go writePacket(&c.tcpConn, reply)
+		return 0, &ProtocolError{msg: ErrBadDT, Info: erBuf}, false
 	}
 	c.expedited = false
 	return c.handleData(b, tpdu)
@@ -427,15 +431,11 @@ func (c *TOSIConn) handleDataError(tpdu []byte, errIdx uint8) (err error) {
 	if (isDR) || (isER) {
 		c.Close()
 	} else {
-		go writeEr(c, tpdu[:errIdx])
-		err = ErrBadTPDU
+		reply := tpkt(er(c.dstRef[:], erParamVal, tpdu[:errIdx]))
+		go writePacket(&c.tcpConn, reply)
+		err = &ProtocolError{msg: ErrBadTPDU, Info: tpdu[:errIdx]}
 	}
 	return
-}
-
-func writeEr(c *TOSIConn, tpdu []byte) {
-	reply := tpkt(er(c.dstRef[:], erParamVal, tpdu))
-	writePacket(&c.tcpConn, reply)
 }
 
 // RemoteAddr returns the remote network address.
@@ -521,10 +521,7 @@ func (a *TOSIAddr) Network() string {
 }
 
 func (a *TOSIAddr) String() string {
-	if a.TSel != nil {
-		return a.IP.String() + ":" + string(a.TSel)
-	}
-	return a.IP.String()
+	return a.TCPAddr.String() + ":" + string(a.TSel)
 }
 
 // ResolveTOSIAddr parses addr as a TOSI address of the form tcp:tsel and
@@ -541,7 +538,7 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	// after the last ':' we have the TSEL
 	index := strings.LastIndex(addr, ":")
 	if index < 0 {
-		return nil, ErrBadAddress
+		return nil, &ProtocolError{msg: ErrBadAddress}
 	}
 	tcp := addr[:index]
 	var tsel string
@@ -551,11 +548,11 @@ func ResolveTOSIAddr(tnet, addr string) (tosiAddr *TOSIAddr, err error) {
 	// if no TCP port was specified, use default (102)
 	_, port, err := net.SplitHostPort(tcp)
 	if port == "" {
-		tcp += rfc1006port
+		tcp += RFC1006port
 	}
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
-		return nil, ErrBadNetwork
+		return nil, &ProtocolError{msg: ErrBadNetwork}
 	}
 	tcpAddr, err := net.ResolveTCPAddr(tcpNet, tcp)
 	if err != nil {
@@ -586,13 +583,15 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (*TOSIConn, error) {
 	}
 	// try to read a TPKT header
 	buf := make([]byte, tpktHlen)
-	_, err = readPacket(tcp, buf)
+	n, err := readPacket(tcp, buf)
+	buf = buf[:n]
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
 		// try to read a CR
 		var reply []byte
 		buf = make([]byte, tlen-tpktHlen)
-		_, err = readPacket(tcp, buf)
+		n, err = readPacket(tcp, buf)
+		buf = buf[:n]
 		isCR, tlen := isCR(buf)
 		if isCR && err == nil {
 			var userData []byte
@@ -616,7 +615,7 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (*TOSIConn, error) {
 	}
 	tcp.Close()
 	if err == nil {
-		err = ErrBadTPKT
+		err = &ProtocolError{msg: ErrBadTPKT}
 	}
 	return nil, err
 }
@@ -669,7 +668,7 @@ func crReply(addr TOSIAddr, tpdu, data []byte, t net.TCPConn) (TOSIConn, error) 
 	}
 	t.Close()
 	if err == nil {
-		err = ErrBadCR
+		err = &ProtocolError{msg: ErrBadCR, Info: erBuf}
 	}
 	return TOSIConn{}, err
 }
@@ -689,13 +688,13 @@ func (l *TOSIListener) Addr() net.Addr {
 // tnet must be "tosi", "tosi4", or "tosi6".
 func ListenTOSI(tnet string, loc *TOSIAddr) (*TOSIListener, error) {
 	if loc == nil {
-		return nil, ErrBadAddress
+		return nil, &ProtocolError{msg: ErrBadAddress}
 	}
 	tcpAddr := loc.TCPAddr
 	tcpNet := tosiToTCPnet(tnet)
 	if tcpNet == "" {
 		// this check is needed by Go versions < 1.1
-		return nil, ErrBadNetwork
+		return nil, &ProtocolError{msg: ErrBadNetwork}
 	}
 	listener, err := net.ListenTCP(tcpNet, &tcpAddr)
 	if err != nil {
