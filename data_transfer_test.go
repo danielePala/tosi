@@ -97,7 +97,7 @@ func TestWriteDR(t *testing.T) {
 		t.FailNow()
 	}
 	payload := tpkt(dr(*conn, 0x01, []byte{0x02}))
-	_, err = writePacket(&conn.tcpConn, payload) // send a DR
+	_, err = conn.tcpConn.Write(payload) // send a DR
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -385,9 +385,14 @@ func tosiServerReadPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
 		t.Log("Wrong expedited indication")
 		t.FailNow()
 	}
+	totalSize := 0
 	for n, payload := range payloads {
 		size := len(payload)
+		totalSize += size
 		end := n == (len(payloads) - 1)
+		if opt.Expedited && totalSize >= (edMaxLen-edMinLen) {
+			end = true
+		}
 		buf := make([]byte, size)
 		read, err := conn.ReadTOSI(buf)
 		if err != nil {
@@ -409,6 +414,9 @@ func tosiServerReadPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
 		if read.EndOfTSDU != end {
 			t.Logf("Wrong EndOfTSDU indication")
 			t.FailNow()
+		}
+		if opt.Expedited && totalSize >= (edMaxLen-edMinLen) {
+			return
 		}
 	}
 }
@@ -538,7 +546,7 @@ func tosiServerWriteDR(t *testing.T) {
 	conn.dstRef = [2]byte{0x01, 0x01}
 	conn.MaxTpduSize = 128
 	payload := tpkt(dr(conn, 0x01, []byte{0x02}))
-	_, err = writePacket(tcp, payload) // send a DR
+	_, err = tcp.Write(payload) // send a DR
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -567,7 +575,7 @@ func tosiServerWriteWrongCC(t *testing.T) {
 	}
 	defer tcp.Close()
 	payload := tpkt(cc(connVars{}))
-	_, err = writePacket(tcp, payload) // send a wrong CC
+	_, err = tcp.Write(payload) // send a wrong CC
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -596,7 +604,7 @@ func tosiServerWriteWrongTPKT(t *testing.T) {
 	}
 	defer tcp.Close()
 	payload := cc(connVars{})
-	_, err = writePacket(tcp, payload) // send a wrong TPKT
+	_, err = tcp.Write(payload) // send a wrong TPKT
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -625,7 +633,7 @@ func tosiServerWriteWrongReply(t *testing.T) {
 	}
 	defer tcp.Close()
 	payload := tpkt(dt([]byte{0x01}, 0x01))
-	_, err = writePacket(tcp, payload) // send a wrong reply
+	_, err = tcp.Write(payload) // send a wrong reply
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -655,7 +663,7 @@ func tosiServerWriteInvalidCC(t *testing.T) {
 	defer tcp.Close()
 	payload := tpkt(cc(connVars{}))
 	replyLen := len(payload) - 1
-	_, err = writePacket(tcp, payload[0:replyLen]) // send an invalid CC
+	_, err = tcp.Write(payload[0:replyLen]) // send an invalid CC
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()

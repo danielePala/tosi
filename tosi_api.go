@@ -24,6 +24,7 @@
 package tosi
 
 import (
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -168,20 +169,20 @@ func dial(tnet string, laddr, raddr *TOSIAddr, cv connVars) (*TOSIConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = writePacket(tcp, tpkt(cr(cv))) // send a CR
+	_, err = tcp.Write(tpkt(cr(cv))) // send a CR
 	if err != nil {
 		tcp.Close()
 		return nil, err
 	}
 	// try to read a TPKT header as response
 	buf := make([]byte, tpktHlen)
-	n, err := readPacket(tcp, buf)
+	n, err := io.ReadFull(tcp, buf)
 	buf = buf[:n]
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
 		// try to read a CC
 		tpdu := make([]byte, tlen-tpktHlen)
-		n, err = readPacket(tcp, tpdu)
+		n, err = io.ReadFull(tcp, tpdu)
 		if err != nil {
 			tcp.Close()
 			return nil, err
@@ -219,7 +220,7 @@ func handleCc(tpdu []byte, tcp *net.TCPConn, cv connVars) (*TOSIConn, error) {
 		// we got an invalid CC
 		// reply with an ER and refuse the connection
 		reply := tpkt(er(cv.srcRef[:], erParamVal, erBuf))
-		writePacket(tcp, reply)
+		tcp.Write(reply)
 		tcp.Close()
 		return nil, &ProtocolError{msg: ErrBadCC, Info: erBuf}
 	}
@@ -249,7 +250,7 @@ func handleDialError(tpdu, srcRef []byte, tcp *net.TCPConn) (err error) {
 	_, errIdx := isCC(tpdu)
 	if (!isDR) && (!isER) {
 		reply := tpkt(er(srcRef, erParamVal, tpdu[:errIdx]))
-		writePacket(tcp, reply)
+		tcp.Write(reply)
 		err = &ProtocolError{msg: ErrUnknownReply, Info: tpdu[:errIdx]}
 	}
 	return
@@ -280,32 +281,6 @@ func (c *TOSIConn) Close() error {
 // LocalAddr returns the local network address.
 func (c *TOSIConn) LocalAddr() net.Addr {
 	return &c.laddr
-}
-
-// Read from a TCP connection until the input buffer is full or error occurs.
-func readPacket(c *net.TCPConn, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := c.Read(buf[total:])
-		if err != nil {
-			return total, err
-		}
-		total += n
-	}
-	return total, nil
-}
-
-// Write to a TCP connection a whole input buffer (if no error occurs).
-func writePacket(c *net.TCPConn, buf []byte) (int, error) {
-	total := 0
-	for total < len(buf) {
-		n, err := c.Write(buf[total:])
-		total += n
-		if err != nil {
-			return total, err
-		}
-	}
-	return total, nil
 }
 
 // Read implements the net.Conn Read method.
@@ -340,43 +315,42 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 	}
 	// read buffer empty, try to read a TPKT header
 	buf := make([]byte, tpktHlen)
-	n, err := readPacket(&c.tcpConn, buf)
-	buf = buf[:n]
-	isTpkt, tlen := isTPKT(buf)
-	if isTpkt && err == nil {
+	_, err = io.ReadFull(&c.tcpConn, buf)
+	if err != nil {
+		return read, err
+	}
+	if isTpkt, tlen := isTPKT(buf); isTpkt {
 		// try to read a DT (or ED)
 		tpdu := make([]byte, tlen-tpktHlen)
-		n, err = readPacket(&c.tcpConn, tpdu)
+		_, err = io.ReadFull(&c.tcpConn, tpdu)
 		if err != nil {
 			return read, err
 		}
-		tpdu = tpdu[:n]
 		isDT, errIdx := isDT(tpdu)
 		isED, _ := isED(tpdu)
 		if isDT {
-			read.N, err, read.EndOfTSDU = c.handleDt(b, tpdu)
+			read.N, err, read.EndOfTSDU = c.handleDT(b, tpdu)
 			return read, err
 		}
 		if isED && c.UseExpedited {
-			read.N, err, read.EndOfTSDU = c.handleEd(b, tpdu)
+			read.N, err, read.EndOfTSDU = c.handleED(b, tpdu)
 			read.Expedited = true
 			return read, err
 		}
 		err = c.handleDataError(tpdu, errIdx)
-	}
-	if err == nil {
+	} else {
 		err = &ProtocolError{msg: ErrBadTPKT}
 	}
 	return read, err
 }
 
 // parse an ED, handling errors and buffering issues
-func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
+func (c *TOSIConn) handleED(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateED(tpdu)
 	if !valid {
 		// we got an invalid ED, reply with an ER
 		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
-		go writePacket(&c.tcpConn, reply)
+		go c.tcpConn.Write(reply)
 		return 0, &ProtocolError{msg: ErrBadED, Info: erBuf}, false
 	}
 	c.expedited = true
@@ -384,12 +358,12 @@ func (c *TOSIConn) handleEd(b, tpdu []byte) (n int, err error, end bool) {
 }
 
 // parse a DT, handling errors and buffering issues
-func (c *TOSIConn) handleDt(b, tpdu []byte) (n int, err error, end bool) {
+func (c *TOSIConn) handleDT(b, tpdu []byte) (n int, err error, end bool) {
 	valid, erBuf := validateDT(tpdu, c.MaxTpduSize)
 	if !valid {
 		// we got an invalid DT, reply with an ER
 		reply := tpkt(er(c.dstRef[:], erParamVal, erBuf))
-		go writePacket(&c.tcpConn, reply)
+		go c.tcpConn.Write(reply)
 		return 0, &ProtocolError{msg: ErrBadDT, Info: erBuf}, false
 	}
 	c.expedited = false
@@ -432,7 +406,7 @@ func (c *TOSIConn) handleDataError(tpdu []byte, errIdx uint8) (err error) {
 		c.Close()
 	} else {
 		reply := tpkt(er(c.dstRef[:], erParamVal, tpdu[:errIdx]))
-		go writePacket(&c.tcpConn, reply)
+		go c.tcpConn.Write(reply)
 		err = &ProtocolError{msg: ErrBadTPDU, Info: tpdu[:errIdx]}
 	}
 	return
@@ -470,6 +444,9 @@ func (c *TOSIConn) WriteTOSI(b []byte, expedited bool) (n int, err error) {
 	if (expedited == false) || (c.UseExpedited == false) {
 		return c.writeTpdu(b, c.MaxTpduSize-dtMinLen)
 	}
+	if len(b) > (edMaxLen - edMinLen) {
+		b = b[:edMaxLen-edMinLen]
+	}
 	return c.writeTpdu(b, edMaxLen-edMinLen)
 }
 
@@ -504,7 +481,7 @@ func (c *TOSIConn) writeTpdu(b []byte, maxSduSize int) (n int, e error) {
 				endOfTsdu = nrNonEot
 			}
 			part := tpkt(tpdu(b[start:end], endOfTsdu))
-			nPart, err := writePacket(&c.tcpConn, part)
+			nPart, err := c.tcpConn.Write(part)
 			n = n + nPart
 			if err != nil {
 				return n, err
@@ -512,7 +489,7 @@ func (c *TOSIConn) writeTpdu(b []byte, maxSduSize int) (n int, e error) {
 		}
 		return
 	}
-	return writePacket(&c.tcpConn, tpkt(tpdu(b, nrEot)))
+	return c.tcpConn.Write(tpkt(tpdu(b, nrEot)))
 }
 
 // Network returns the address's network name, "tosi".
@@ -583,14 +560,14 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (*TOSIConn, error) {
 	}
 	// try to read a TPKT header
 	buf := make([]byte, tpktHlen)
-	n, err := readPacket(tcp, buf)
+	n, err := io.ReadFull(tcp, buf)
 	buf = buf[:n]
 	isTpkt, tlen := isTPKT(buf)
 	if isTpkt && err == nil {
 		// try to read a CR
 		var reply []byte
 		buf = make([]byte, tlen-tpktHlen)
-		n, err = readPacket(tcp, buf)
+		n, err = io.ReadFull(tcp, buf)
 		buf = buf[:n]
 		isCR, tlen := isCR(buf)
 		if isCR && err == nil {
@@ -610,7 +587,7 @@ func (l *TOSIListener) AcceptTOSI(data func([]byte) []byte) (*TOSIConn, error) {
 			// reply with an ER
 			zeroDstRef := []byte{0x00, 0x00}
 			reply = tpkt(er(zeroDstRef, erParamVal, buf[:tlen]))
-			_, err = writePacket(tcp, reply)
+			_, err = tcp.Write(reply)
 		}
 	}
 	tcp.Close()
@@ -646,7 +623,7 @@ func crReply(addr TOSIAddr, tpdu, data []byte, t net.TCPConn) (TOSIConn, error) 
 		// reply with an ER
 		reply = tpkt(er(cv.srcRef[:], erParamVal, erBuf))
 	}
-	_, err := writePacket(&t, reply)
+	_, err := t.Write(reply)
 	if valid && (err == nil) {
 		// connection established
 		// NOTE: in reply to our CC, we may also receive

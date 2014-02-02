@@ -196,7 +196,7 @@ func TestWrongCR(t *testing.T) {
 	// try to connect
 	tcp, err := net.DialTCP("tcp4", nil, &tosiAddr.TCPAddr)
 	checkError(err, t)
-	_, err = writePacket(tcp, tpkt([]byte{0x00})) // send a wrong CR
+	_, err = tcp.Write(tpkt([]byte{0x00})) // send a wrong CR
 	checkError(err, t)
 	tcp.Close()
 	time.Sleep(time.Millisecond)
@@ -214,7 +214,7 @@ func TestWrongCR2(t *testing.T) {
 	// try to connect
 	tcp, err := net.DialTCP("tcp4", nil, &tosiAddr.TCPAddr)
 	checkError(err, t)
-	_, err = writePacket(tcp, []byte{0x00}) // send a wrong CR
+	_, err = tcp.Write([]byte{0x00}) // send a wrong CR
 	checkError(err, t)
 	tcp.Close()
 	time.Sleep(time.Millisecond)
@@ -254,8 +254,8 @@ func TestWrongCR3(t *testing.T) {
 	cv.srcRef = [2]byte{0x01, 0x01}
 	cv.remTsel = tosiAddr.TSel
 	connReq := cr(cv)
-	connReq[6] = 0x20                        // wrong class option
-	_, err = writePacket(tcp, tpkt(connReq)) // send a wrong CR
+	connReq[6] = 0x20                 // wrong class option
+	_, err = tcp.Write(tpkt(connReq)) // send a wrong CR
 	checkError(err, t)
 	tcp.Close()
 	time.Sleep(time.Millisecond)

@@ -514,7 +514,13 @@ func validateDT(incoming []byte, maxTpduSize int) (valid bool, erBuf []byte) {
 // validate an ED TPDU, or return the bit pattern of the rejected TPDU header
 // up to and including the octet which caused the rejection.
 func validateED(incoming []byte) (valid bool, erBuf []byte) {
-	return validateDT(incoming, edMaxLen)
+	valid, erBuf = validateDT(incoming, edMaxLen)
+	if valid {
+		if incoming[eotIdx] != nrEot {
+			return false, incoming[:eotIdx+1]
+		}
+	}
+	return
 }
 
 /* DR - Disconnect Request */
