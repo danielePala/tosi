@@ -2,7 +2,7 @@
  Definition of the external interface of the package, based on the
  constructs defined in the standard 'net' package.
 
- Copyright 2013 Daniele Pala <pala.daniele@gmail.com>
+ Copyright 2013, 2014 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
 
@@ -342,6 +342,20 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 		err = &ProtocolError{msg: ErrBadTPKT}
 	}
 	return read, err
+}
+
+// ReadTSDU reads from a TOSI connection until end-of-TSDU is indicated, 
+// or an error occurs. In case of error tsdu contains all data read
+// before the error occurrence.
+func (c *TOSIConn) ReadTSDU() (tsdu []byte, err error) {
+        for {
+		buf := make([]byte, c.MaxTpduSize)
+                read, err := c.ReadTOSI(buf)
+                tsdu = append(tsdu, buf[:read.N]...)
+                if err != nil || read.EndOfTSDU {
+                        return tsdu, err
+                }
+	}
 }
 
 // parse an ED, handling errors and buffering issues
