@@ -344,17 +344,18 @@ func (c *TOSIConn) ReadTOSI(b []byte) (read ReadInfo, err error) {
 	return read, err
 }
 
-// ReadTSDU reads from a TOSI connection until end-of-TSDU is indicated, 
+// ReadTSDU reads from a TOSI connection until end-of-TSDU is indicated,
 // or an error occurs. In case of error tsdu contains all data read
 // before the error occurrence.
-func (c *TOSIConn) ReadTSDU() (tsdu []byte, err error) {
-        for {
+func (c *TOSIConn) ReadTSDU() (tsdu []byte, r ReadInfo, err error) {
+	for {
 		buf := make([]byte, c.MaxTpduSize)
-                read, err := c.ReadTOSI(buf)
-                tsdu = append(tsdu, buf[:read.N]...)
-                if err != nil || read.EndOfTSDU {
-                        return tsdu, err
-                }
+		r, err = c.ReadTOSI(buf)
+		tsdu = append(tsdu, buf[:r.N]...)
+		if err != nil || r.EndOfTSDU {
+			r.N = len(tsdu)
+			return tsdu, r, err
+		}
 	}
 }
 
