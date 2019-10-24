@@ -2,7 +2,7 @@
  Definition of the TPDUs used by ISO 8073 transport Class 0 (with
  modifications defined in RFC 1006) and associated validation functions.
 
- Copyright 2013, 2014 Daniele Pala <pala.daniele@gmail.com>
+ Copyright 2013-2019 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
 
