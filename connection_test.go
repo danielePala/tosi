@@ -272,10 +272,7 @@ func tosiServer(t *testing.T) {
 	listener, err := ListenTOSI(tosiAddr.Network(), tosiAddr)
 	checkError(err, t)
 	// listen for connections
-	conn, err := listener.Accept()
-	checkError(err, t)
-	// close connection
-	err = conn.Close()
+	_, err = listener.Accept()
 	checkError(err, t)
 	err = listener.Close()
 	checkError(err, t)
@@ -288,10 +285,7 @@ func tosiServerNoTsel(t *testing.T) {
 	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkError(err, t)
 	// listen for connections
-	conn, err := listener.Accept()
-	checkError(err, t)
-	// close connection
-	err = conn.Close()
+	_, err = listener.Accept()
 	checkError(err, t)
 	err = listener.Close()
 	checkError(err, t)

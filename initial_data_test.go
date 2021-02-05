@@ -140,9 +140,6 @@ func tosiServerRead5bytesIn(t *testing.T) {
 		t.Log("Expedited service available but not requested")
 		t.FailNow()
 	}
-	// close connection
-	err = conn.Close()
-	checkErrorIn(err, t)
 	err = listener.Close()
 	checkErrorIn(err, t)
 }
@@ -175,9 +172,6 @@ func tosiServerRead5bytes(t *testing.T) {
 		t.Log("Wrong EndOfTSDU indication")
 		t.FailNow()
 	}
-	// close connection
-	err = conn.Close()
-	checkErrorIn(err, t)
 	err = listener.Close()
 	checkErrorIn(err, t)
 }
