@@ -1,5 +1,5 @@
 /*
- Copyright 2013-2019 Daniele Pala <pala.daniele@gmail.com>
+ Copyright 2013-2021 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
 
@@ -22,18 +22,28 @@ package tosi
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 	"time"
+)
+
+const (
+	// each test uses different ports for servers,
+	// in order to avoid possible conflicts.
+	initTest1Port = 8107
+	initTest2Port = 8108
+	initTest3Port = 8109
 )
 
 // Test 1
 // test initial data write with 5 bytes. No error should occur.
 func TestWrite5bytesIn(t *testing.T) {
 	// start a server
-	go tosiServerRead5bytesIn(t)
+	go tosiServerRead5bytesIn(t, initTest1Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(initTest1Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
@@ -69,10 +79,11 @@ func TestWrite5bytesIn(t *testing.T) {
 // but only 32 bytes should be transferred.
 func TestWrite35bytesIn(t *testing.T) {
 	// start a server
-	go tosiServerRead5bytesIn(t)
+	go tosiServerRead5bytesIn(t, initTest2Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(initTest2Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := make([]byte, 35)
@@ -108,10 +119,11 @@ func TestWrite35bytesIn(t *testing.T) {
 // a normal ReadTOSI call. No error should occur.
 func TestWrite5bytes(t *testing.T) {
 	// start a server
-	go tosiServerRead5bytes(t)
+	go tosiServerRead5bytes(t, initTest3Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(initTest3Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	checkErrorIn(err, t)
 	// try to connect with initial data
 	data := []byte{0x01, 0xff, 0x66, 0x93, 0x20}
@@ -128,8 +140,9 @@ func TestWrite5bytes(t *testing.T) {
 }
 
 // a tosi server reading 5 bytes of initial data. No fault is expected.
-func tosiServerRead5bytesIn(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+func tosiServerRead5bytesIn(t *testing.T, port int) {
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	checkErrorIn(err, t)
 	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorIn(err, t)
@@ -145,8 +158,9 @@ func tosiServerRead5bytesIn(t *testing.T) {
 }
 
 // a tosi server reading 5 bytes. No fault is expected.
-func tosiServerRead5bytes(t *testing.T) {
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+func tosiServerRead5bytes(t *testing.T, port int) {
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	checkErrorIn(err, t)
 	listener, err := ListenTOSI("tosi", tosiAddr)
 	checkErrorIn(err, t)

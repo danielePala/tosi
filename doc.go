@@ -1,5 +1,5 @@
 /*
- Copyright 2013-2019 Daniele Pala <pala.daniele@gmail.com>
+ Copyright 2013-2021 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
 

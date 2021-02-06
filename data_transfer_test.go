@@ -1,5 +1,5 @@
 /*
- Copyright 2013-2019 Daniele Pala <pala.daniele@gmail.com>
+ Copyright 2013-2021 Daniele Pala <pala.daniele@gmail.com>
 
  This file is part of tosi.
 
@@ -22,40 +22,61 @@ package tosi
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 	"time"
 )
 
 const (
 	maxSduSize = 65528
+	// each test uses different ports for servers,
+	// in order to avoid possible conflicts.
+	dataTest1Port  = 8090
+	dataTest2Port  = 8091
+	dataTest3Port  = 8092
+	dataTest4Port  = 8093
+	dataTest5Port  = 8094
+	dataTest6Port  = 8095
+	dataTest7Port  = 8096
+	dataTest8Port  = 8097
+	dataTest9Port  = 8098
+	dataTest10Port = 8099
+	dataTest11Port = 8100
+	dataTest12Port = 8101
+	dataTest13Port = 8102
+	dataTest14Port = 8103
+	dataTest15Port = 8104
+	dataTest16Port = 8105
+	dataTest17Port = 8106
 )
 
 // Test 1
 // test data write with 2 bytes.
 // No error should occur.
 func TestWrite2bytes(t *testing.T) {
-	testPayloads(t, DialOpt{}, []byte{0x01, 0x02})
+	testPayloads(t, DialOpt{}, dataTest1Port, []byte{0x01, 0x02})
 }
 
 // Test 2
 // test data write with maximum SDU size (default: 65528).
 // No error should occur.
 func TestWriteMax(t *testing.T) {
-	testPayloads(t, DialOpt{}, make([]byte, maxSduSize))
+	testPayloads(t, DialOpt{}, dataTest2Port, make([]byte, maxSduSize))
 }
 
 // Test 3
 // test data write with 2 bytes.
 // No error should occur. The server performs two reads.
 func TestWrite1byte2times(t *testing.T) {
-	testPayloads(t, DialOpt{}, []byte{0x01}, []byte{0x02})
+	testPayloads(t, DialOpt{}, dataTest3Port, []byte{0x01}, []byte{0x02})
 }
 
 // Test 4
 // test data write with more than maximum SDU size (default: 65528).
 // No error should occur.
 func TestWriteMoreThanMax(t *testing.T) {
-	testPayloads(t, DialOpt{}, make([]byte, maxSduSize), []byte{0x04})
+	maxBuf := make([]byte, maxSduSize)
+	testPayloads(t, DialOpt{}, dataTest4Port, maxBuf, []byte{0x04})
 }
 
 // Test 5
@@ -64,7 +85,8 @@ func TestWriteMoreThanMax(t *testing.T) {
 func TestWriteCustom1(t *testing.T) {
 	customTpduSze := 512
 	opt := DialOpt{MaxTPDUSize: customTpduSze}
-	testPayloads(t, opt, make([]byte, customTpduSze-3), []byte{0x33})
+	buf := make([]byte, customTpduSze-3)
+	testPayloads(t, opt, dataTest5Port, buf, []byte{0x33})
 }
 
 // Test 6
@@ -73,7 +95,8 @@ func TestWriteCustom1(t *testing.T) {
 func TestWriteCustom2(t *testing.T) {
 	customTpduSze := 4096
 	opt := DialOpt{MaxTPDUSize: customTpduSze}
-	testPayloads(t, opt, make([]byte, customTpduSze-3), []byte{0x33})
+	buf := make([]byte, customTpduSze-3)
+	testPayloads(t, opt, dataTest6Port, buf, []byte{0x33})
 }
 
 // Test 7
@@ -81,10 +104,11 @@ func TestWriteCustom2(t *testing.T) {
 // The server should close the connection.
 func TestWriteDR(t *testing.T) {
 	// start a server
-	go tosiServerReadDR(t)
+	go tosiServerReadDR(t, dataTest7Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest7Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -110,7 +134,7 @@ func TestWriteDR(t *testing.T) {
 // No error should occur.
 func TestWrite2bytesExpedited(t *testing.T) {
 	opt := DialOpt{Expedited: true}
-	testPayloads(t, opt, []byte{0x01, 0x02})
+	testPayloads(t, opt, dataTest8Port, []byte{0x01, 0x02})
 }
 
 // Test 9
@@ -118,7 +142,7 @@ func TestWrite2bytesExpedited(t *testing.T) {
 // No error should occur.
 func TestWriteMaxExpedited(t *testing.T) {
 	opt := DialOpt{Expedited: true}
-	testPayloads(t, opt, make([]byte, 16))
+	testPayloads(t, opt, dataTest9Port, make([]byte, 16))
 }
 
 // Test 10
@@ -126,7 +150,7 @@ func TestWriteMaxExpedited(t *testing.T) {
 // No error should occur. The server performs two reads.
 func TestWrite1byte2timesExpedited(t *testing.T) {
 	opt := DialOpt{Expedited: true}
-	testPayloads(t, opt, []byte{0x01}, []byte{0x02})
+	testPayloads(t, opt, dataTest10Port, []byte{0x01}, []byte{0x02})
 }
 
 // Test 11
@@ -134,7 +158,7 @@ func TestWrite1byte2timesExpedited(t *testing.T) {
 // No error should occur.
 func TestWriteMoreThanMaxExpedited(t *testing.T) {
 	opt := DialOpt{Expedited: true}
-	testPayloads(t, opt, make([]byte, 16), make([]byte, 11))
+	testPayloads(t, opt, dataTest11Port, make([]byte, 16), make([]byte, 11))
 }
 
 // Test 12
@@ -142,10 +166,11 @@ func TestWriteMoreThanMaxExpedited(t *testing.T) {
 // The server sends a DR.
 func TestReadDR(t *testing.T) {
 	// start a server
-	go tosiServerWriteDR(t)
+	go tosiServerWriteDR(t, dataTest12Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest12Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -174,10 +199,11 @@ func TestReadDR(t *testing.T) {
 // The server sends a wrong CC.
 func TestReadWrongCC(t *testing.T) {
 	// start a server
-	go tosiServerWriteWrongCC(t)
+	go tosiServerWriteWrongCC(t, dataTest13Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest13Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -205,10 +231,11 @@ func TestReadWrongCC(t *testing.T) {
 // The server sends a wrong TPKT.
 func TestReadWrongTPKT(t *testing.T) {
 	// start a server
-	go tosiServerWriteWrongTPKT(t)
+	go tosiServerWriteWrongTPKT(t, dataTest14Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest14Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -236,10 +263,11 @@ func TestReadWrongTPKT(t *testing.T) {
 // The server sends a wrong reply (not a CC).
 func TestReadWrongReply(t *testing.T) {
 	// start a server
-	go tosiServerWriteWrongReply(t)
+	go tosiServerWriteWrongReply(t, dataTest15Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest15Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -267,10 +295,11 @@ func TestReadWrongReply(t *testing.T) {
 // The server sends an invalid reply (a CC with a missing byte).
 func TestReadInvalidCC(t *testing.T) {
 	// start a server
-	go tosiServerWriteInvalidCC(t)
+	go tosiServerWriteInvalidCC(t, dataTest16Port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	remAddr := "127.0.0.1:" + strconv.Itoa(dataTest16Port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -287,20 +316,22 @@ func TestReadInvalidCC(t *testing.T) {
 // test data write with more than maximum SDU size (default: 65528).
 // The server reads 1 byte at a time. No error should occur.
 func TestWriteMoreThanMaxMerged(t *testing.T) {
-	testPayloadsMerged(t, DialOpt{}, make([]byte, maxSduSize), []byte{0x04})
+	buf := make([]byte, maxSduSize)
+	testMerged(t, DialOpt{}, dataTest17Port, buf, []byte{0x04})
 }
 
 // send a given set of payloads as a single message
-func testPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
+func testPayloads(t *testing.T, opt DialOpt, port int, payloads ...[]byte) {
 	var allPayloads []byte
 	for _, payload := range payloads {
 		allPayloads = append(allPayloads, payload...)
 	}
 	// start a server
-	go tosiServerReadPayloads(t, opt, payloads...)
+	go tosiSrvRead(t, opt, port, payloads...)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	remAddr := "127.0.0.1:" + strconv.Itoa(port) + ":105"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -326,16 +357,17 @@ func testPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
 
 // send a given set of payloads as a single message, with server
 // reading 1 byte at a time
-func testPayloadsMerged(t *testing.T, opt DialOpt, payloads ...[]byte) {
+func testMerged(t *testing.T, opt DialOpt, port int, payloads ...[]byte) {
 	var allPayloads []byte
 	for _, payload := range payloads {
 		allPayloads = append(allPayloads, payload...)
 	}
 	// start a server
-	go tosiServerReadPayload(t, opt, allPayloads)
+	go tosiSrvReadPayload(t, opt, allPayloads, port)
 	// wait for server to come up
 	time.Sleep(time.Millisecond)
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	remAddr := "127.0.0.1:" + strconv.Itoa(port) + ":105"
+	tosiAddr, err := ResolveTOSIAddr("tosi", remAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -360,10 +392,11 @@ func testPayloadsMerged(t *testing.T, opt DialOpt, payloads ...[]byte) {
 }
 
 // a tosi server reading arbitrary payloads. No fault is expected.
-func tosiServerReadPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
+func tosiSrvRead(t *testing.T, opt DialOpt, port int, payloads ...[]byte) {
 	var conn *TOSIConn
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":105"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -422,10 +455,11 @@ func tosiServerReadPayloads(t *testing.T, opt DialOpt, payloads ...[]byte) {
 }
 
 // a tosi server reading a payload, one byte at a time. No fault is expected.
-func tosiServerReadPayload(t *testing.T, opt DialOpt, payload []byte) {
+func tosiSrvReadPayload(t *testing.T, opt DialOpt, payload []byte, port int) {
 	var conn *TOSIConn
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::105")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":105"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -475,10 +509,11 @@ func tosiServerReadPayload(t *testing.T, opt DialOpt, payload []byte) {
 }
 
 // a tosi server reading 100 bytes. A DR is expected from client.
-func tosiServerReadDR(t *testing.T) {
+func tosiServerReadDR(t *testing.T, port int) {
 	var conn *TOSIConn
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -521,10 +556,11 @@ func tosiServerReadDR(t *testing.T) {
 }
 
 // a tosi server writing a DR.
-func tosiServerWriteDR(t *testing.T) {
+func tosiServerWriteDR(t *testing.T, port int) {
 	var conn TOSIConn
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -553,9 +589,10 @@ func tosiServerWriteDR(t *testing.T) {
 }
 
 // a tosi server writing a wrong CC.
-func tosiServerWriteWrongCC(t *testing.T) {
+func tosiServerWriteWrongCC(t *testing.T, port int) {
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -581,9 +618,10 @@ func tosiServerWriteWrongCC(t *testing.T) {
 }
 
 // a tosi server writing a wrong TPKT.
-func tosiServerWriteWrongTPKT(t *testing.T) {
+func tosiServerWriteWrongTPKT(t *testing.T, port int) {
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -609,9 +647,10 @@ func tosiServerWriteWrongTPKT(t *testing.T) {
 }
 
 // a tosi server writing a wrong reply (not a CC).
-func tosiServerWriteWrongReply(t *testing.T) {
+func tosiServerWriteWrongReply(t *testing.T, port int) {
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -637,9 +676,10 @@ func tosiServerWriteWrongReply(t *testing.T) {
 }
 
 // a tosi server writing an invalid CC (one byte missing).
-func tosiServerWriteInvalidCC(t *testing.T) {
+func tosiServerWriteInvalidCC(t *testing.T, port int) {
 	var listener *TOSIListener
-	tosiAddr, err := ResolveTOSIAddr("tosi", "127.0.0.1::100")
+	locAddr := "127.0.0.1:" + strconv.Itoa(port) + ":100"
+	tosiAddr, err := ResolveTOSIAddr("tosi", locAddr)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
